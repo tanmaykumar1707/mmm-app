@@ -66,7 +66,9 @@ class FirebaseService {
 
   static Future<void> grantAccess(String myUid, String targetEmail) async {
     final profilesSnap = await _db.ref('profiles').get();
-    if (!profilesSnap.exists) throw Exception('User not found');
+    if (!profilesSnap.exists) {
+      throw Exception('No MMM profiles found. The other user must sign in to MMM at least once first.');
+    }
     String? targetUid;
     Map<String, dynamic>? targetProfile;
     for (final child in profilesSnap.children) {
@@ -77,23 +79,30 @@ class FirebaseService {
         break;
       }
     }
-    if (targetUid == null) throw Exception('User not found. They must sign in to MMM first.');
+    if (targetUid == null) throw Exception('User not found — they must sign in to MMM first.');
     if (targetUid == myUid) throw Exception('Cannot grant access to yourself.');
+    // Write the grant first; receivedAccess security rule requires this grant to exist.
     await _db.ref('shares/$myUid/grantedTo/$targetUid').set(targetProfile);
     await _db.ref('receivedAccess/$targetUid/$myUid').set(true);
   }
 
   static Future<List<Map<String, dynamic>>> getGrantedAccesses(String myUid) async {
-    final snap = await _db.ref('shares/$myUid/grantedTo').get();
-    if (!snap.exists) return [];
-    return snap.children.map((c) {
-      final m = Map<String, dynamic>.from(c.value as Map);
-      return {'uid': c.key, ...m};
-    }).toList();
+    try {
+      final snap = await _db.ref('shares/$myUid/grantedTo').get();
+      if (!snap.exists) return [];
+      return snap.children.map((c) {
+        final m = Map<String, dynamic>.from(c.value as Map);
+        return {'uid': c.key, ...m};
+      }).toList();
+    } catch (e) {
+      throw Exception('Could not load sharing list: $e');
+    }
   }
 
   static Future<void> revokeAccess(String myUid, String targetUid) async {
-    await _db.ref('shares/$myUid/grantedTo/$targetUid').remove();
+    // Remove receivedAccess index first (rule requires grant to still exist at write time),
+    // then remove the grant itself.
     await _db.ref('receivedAccess/$targetUid/$myUid').remove();
+    await _db.ref('shares/$myUid/grantedTo/$targetUid').remove();
   }
 }

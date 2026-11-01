@@ -47,33 +47,30 @@ In Firebase Console → Realtime Database → **Rules**, paste:
 ```json
 {
   "rules": {
-    "profiles": {
-      "$uid": {
-        ".read": "auth != null",
-        ".write": "$uid === auth.uid"
-      }
-    },
     "userData": {
       "$uid": {
-        ".read": "$uid === auth.uid || root.child('receivedAccess/' + auth.uid + '/' + $uid).exists()",
-        ".write": "$uid === auth.uid"
+        ".read": "auth != null && (auth.uid === $uid || root.child('shares/' + $uid + '/grantedTo/' + auth.uid).exists())",
+        ".write": "auth != null && auth.uid === $uid"
+      }
+    },
+    "profiles": {
+      ".read": "auth != null",
+      "$uid": {
+        ".write": "auth != null && auth.uid === $uid"
       }
     },
     "shares": {
       "$uid": {
-        ".read": "$uid === auth.uid",
-        ".write": "$uid === auth.uid",
-        "grantedTo": {
-          "$targetUid": {
-            ".read": "$targetUid === auth.uid"
-          }
-        }
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": "auth != null && auth.uid === $uid"
       }
     },
     "receivedAccess": {
-      "$uid": {
-        ".read": "$uid === auth.uid",
-        ".write": "auth != null"
+      "$targetUid": {
+        ".read": "auth != null && auth.uid === $targetUid",
+        "$ownerUid": {
+          ".write": "auth != null && auth.uid === $ownerUid && (!newData.exists() || root.child('shares/' + $ownerUid + '/grantedTo/' + $targetUid).exists())"
+        }
       }
     }
   }
