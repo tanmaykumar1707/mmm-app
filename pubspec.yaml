@@ -1,0 +1,40 @@
+name: mmm
+description: My Money Manager - Personal Finance Tracker
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  firebase_core: ^3.6.0
+  firebase_auth: ^5.3.1
+  firebase_database: ^11.1.4
+  google_sign_in: ^6.2.1
+  intl: ^0.19.0
+  shared_preferences: ^2.3.2
+  uuid: ^4.4.2
+  provider: ^6.1.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true
+  fonts:
+    - family: Outfit
+      fonts:
+        - asset: assets/fonts/Outfit-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/Outfit-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/Outfit-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/Outfit-Bold.ttf
+          weight: 700
+  assets:
+    - assets/
