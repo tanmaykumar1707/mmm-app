@@ -30,7 +30,7 @@ class _MonthTabState extends State<MonthTab> {
     final paid   = expenses.where((e) => e.paid).fold(0.0, (s, e) => s + e.amount);
     final pending = total - paid;
 
-    return Column(children: [
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       // Month navigation
       Container(
         color: kPrimary,

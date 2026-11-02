@@ -1,5 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:google_sign_in/google_sign_in.dart';
 import '../models/app_state.dart';
 
@@ -13,13 +14,21 @@ class FirebaseService {
   static String? get uid => _auth.currentUser?.uid;
 
   static Future<void> signInWithGoogle() async {
-    final ga = await _gsi.signIn();
-    if (ga == null) return;
-    final cred = GoogleAuthProvider.credential(
-      accessToken: (await ga.authentication).accessToken,
-      idToken: (await ga.authentication).idToken,
-    );
-    await _auth.signInWithCredential(cred);
+    final provider = GoogleAuthProvider();
+    if (kIsWeb) {
+      // signInWithPopup works for local dev; COOP console warnings are harmless.
+      // (signInWithRedirect requires Firebase Hosting for /__/firebase/init.json)
+      await _auth.signInWithPopup(provider);
+    } else {
+      final ga = await _gsi.signIn();
+      if (ga == null) return;
+      final auth = await ga.authentication;
+      final cred = GoogleAuthProvider.credential(
+        accessToken: auth.accessToken,
+        idToken: auth.idToken,
+      );
+      await _auth.signInWithCredential(cred);
+    }
   }
 
   static Future<void> signOut() async {

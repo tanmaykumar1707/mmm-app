@@ -37,7 +37,7 @@ class _CardsTabState extends State<CardsTab> {
     final nextBill = allTxns.where((t) => t.nextBill).fold(0.0, (s, t) => s + t.amount);
     final cashTotal = cashList.fold(0.0, (s, t) => s + t.amount);
 
-    return Column(children: [
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       // Month nav header
       Container(
         color: kPrimary,

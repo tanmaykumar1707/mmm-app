@@ -27,6 +27,18 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final sp = context.watch<StateProvider>();
+    // Show Firebase errors as snackbar
+    if (sp.errorMessage != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(sp.errorMessage!),
+          backgroundColor: const Color(0xFFDC2626),
+          action: SnackBarAction(label: 'Dismiss', textColor: Colors.white, onPressed: sp.clearError),
+          duration: const Duration(seconds: 8),
+        ));
+        sp.clearError();
+      });
+    }
     return Scaffold(
       appBar: AppBar(
         title: const Text('MMM'),
@@ -62,31 +74,37 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ],
       ),
-      body: IndexedStack(
-        index: _tab,
-        children: const [MonthTab(), CardsTab(), LbTab(), DefaultsTab()],
-      ),
-      bottomNavigationBar: Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-          boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 12, offset: Offset(0, -2))],
-        ),
-        child: SafeArea(
-          top: false,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: List.generate(_tabs.length, (i) => _NavItem(
-                icon: _tabs[i]['icon'] as IconData,
-                label: _tabs[i]['label'] as String,
-                selected: i == _tab,
-                onTap: () => setState(() => _tab = i),
-              )),
+      body: Column(
+        children: [
+          Expanded(
+            child: IndexedStack(
+              index: _tab,
+              children: const [MonthTab(), CardsTab(), LbTab(), DefaultsTab()],
             ),
           ),
-        ),
+          Container(
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+              boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 12, offset: Offset(0, -2))],
+            ),
+            child: SafeArea(
+              top: false,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  children: List.generate(_tabs.length, (i) => _NavItem(
+                    icon: _tabs[i]['icon'] as IconData,
+                    label: _tabs[i]['label'] as String,
+                    selected: i == _tab,
+                    onTap: () => setState(() => _tab = i),
+                  )),
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

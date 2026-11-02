@@ -13,7 +13,7 @@ class DefaultsTab extends StatelessWidget {
     final defaults = sp.state.defaults;
     final total = defaults.fold(0.0, (s, e) => s + e.amount);
 
-    return Column(children: [
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       Container(color: kPrimary, padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
         child: Row(children: [
           const Text('Default Expenses', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w700)),

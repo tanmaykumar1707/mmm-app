@@ -25,6 +25,11 @@ class StateProvider extends ChangeNotifier {
   List<Map<String, String>> _sharedWorkspaces = [];
   List<Map<String, String>> get sharedWorkspaces => _sharedWorkspaces;
 
+  // Error state — shown as a banner in the UI
+  String? _errorMessage;
+  String? get errorMessage => _errorMessage;
+  void clearError() { _errorMessage = null; notifyListeners(); }
+
   StreamSubscription? _stateSub;
 
   void setUser(String uid, String email, String displayName) {
@@ -35,20 +40,41 @@ class StateProvider extends ChangeNotifier {
 
   Future<void> loadSharedWorkspaces() async {
     if (_myUid == null) return;
-    _sharedWorkspaces = await FirebaseService.getSharedWorkspaces(_myUid!);
-    notifyListeners();
+    try {
+      _sharedWorkspaces = await FirebaseService.getSharedWorkspaces(_myUid!);
+      notifyListeners();
+    } catch (e) {
+      _errorMessage = 'Could not load shared workspaces: $e';
+      notifyListeners();
+    }
   }
 
   void switchWorkspace(String uid) {
     _currentWorkspaceUid = uid;
     _stateSub?.cancel();
-    _stateSub = FirebaseService.watchState(uid).listen((s) {
-      _state = s;
-      if (_state.people.isEmpty && uid == _myUid) {
-        _state.people = [_myDisplayName ?? 'Me'];
-      }
-      notifyListeners();
-    });
+    _stateSub = FirebaseService.watchState(uid).listen(
+      (s) {
+        _state = s;
+        _errorMessage = null;
+        if (_state.people.isEmpty && uid == _myUid) {
+          _state.people = [_myDisplayName ?? 'Me'];
+        }
+        notifyListeners();
+      },
+      onError: (e) {
+        _errorMessage = 'Firebase error: ${e.toString()}';
+        notifyListeners();
+      },
+    );
+    notifyListeners();
+  }
+
+  void clearWorkspace() {
+    _stateSub?.cancel();
+    _stateSub = null;
+    _myUid = null;
+    _currentWorkspaceUid = null;
+    _state = AppState.empty();
     notifyListeners();
   }
 

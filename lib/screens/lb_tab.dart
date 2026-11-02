@@ -26,7 +26,7 @@ class _LbTabState extends State<LbTab> {
     final totalBorrowed = all.where((e) => e.type == 'borrowed' && !e.isSettled)
         .fold(0.0, (s, e) => s + e.remaining);
 
-    return Column(children: [
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       // Summary header
       Container(
         color: kPrimary,
