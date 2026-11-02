@@ -17,6 +17,7 @@
 4. Click **Register app**
 5. Download **google-services.json**
 6. Place it at: `android/app/google-services.json`
+   Gradle does not read this file from `android/app/src/google-services.json`.
 7. Click **Next** through the remaining steps (the Gradle files are already configured)
 
 ---
@@ -31,6 +32,10 @@
    ./gradlew signingReport
    ```
    Copy the SHA-1 from the `debug` variant and add it in Firebase Console → Project Settings → Your Android app
+
+### Web sign-in
+
+For Flutter Web, register a **Web app** in the same Firebase project. Its OAuth client ID must be set in the `google-signin-client_id` meta tag in `web/index.html`. Firebase also lists this Web OAuth client in `google-services.json` as a client with type `3`.
 
 ---
 
