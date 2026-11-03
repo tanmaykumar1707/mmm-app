@@ -31,6 +31,7 @@ class StateProvider extends ChangeNotifier {
   void clearError() { _errorMessage = null; notifyListeners(); }
 
   StreamSubscription? _stateSub;
+  Timer? _saveTimer;
 
   void setUser(String uid, String email, String displayName) {
     _myUid = uid;
@@ -80,7 +81,11 @@ class StateProvider extends ChangeNotifier {
 
   void save() {
     if (isReadOnly || _myUid == null) return;
-    FirebaseService.saveState(_myUid!, _state);
+    // Debounce: coalesce rapid successive mutations into one Firebase write
+    _saveTimer?.cancel();
+    _saveTimer = Timer(const Duration(milliseconds: 600), () {
+      FirebaseService.saveState(_myUid!, _state);
+    });
   }
 
   // ── Month expenses ──
@@ -167,10 +172,25 @@ class StateProvider extends ChangeNotifier {
     save(); notifyListeners();
   }
 
+  void updateCardTxn(String cardId, String mk, CardTxn t) {
+    final list = cardTxns(cardId, mk).toList();
+    final i = list.indexWhere((x) => x.id == t.id);
+    if (i >= 0) list[i] = t;
+    _state.cardTxns[cardId]?[mk] = list;
+    save(); notifyListeners();
+  }
+
   void toggleNextBill(String cardId, String mk, String id) {
     final list = cardTxns(cardId, mk);
     final i = list.indexWhere((t) => t.id == id);
     if (i >= 0) list[i].nextBill = !list[i].nextBill;
+    save(); notifyListeners();
+  }
+
+  void toggleCardTxnPaid(String cardId, String mk, String id) {
+    final list = cardTxns(cardId, mk);
+    final i = list.indexWhere((t) => t.id == id);
+    if (i >= 0) list[i].paid = !list[i].paid;
     save(); notifyListeners();
   }
 
@@ -187,8 +207,23 @@ class StateProvider extends ChangeNotifier {
     save(); notifyListeners();
   }
 
+  void updateCashTxn(String mk, CashTxn t) {
+    final list = cashTxns(mk).toList();
+    final i = list.indexWhere((x) => x.id == t.id);
+    if (i >= 0) list[i] = t;
+    _state.cashTxns[mk] = list;
+    save(); notifyListeners();
+  }
+
   void deleteCashTxn(String mk, String id) {
     _state.cashTxns[mk]?.removeWhere((t) => t.id == id);
+    save(); notifyListeners();
+  }
+
+  void toggleCashTxnPaid(String mk, String id) {
+    final list = cashTxns(mk);
+    final i = list.indexWhere((t) => t.id == id);
+    if (i >= 0) list[i].paid = !list[i].paid;
     save(); notifyListeners();
   }
 
@@ -234,6 +269,7 @@ class StateProvider extends ChangeNotifier {
   @override
   void dispose() {
     _stateSub?.cancel();
+    _saveTimer?.cancel();
     super.dispose();
   }
 }

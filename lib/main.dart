@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:provider/provider.dart';
@@ -52,6 +53,13 @@ class _AuthGate extends StatefulWidget {
 class _AuthGateState extends State<_AuthGate> {
   bool _loading = true;
   String? _error;
+  StreamSubscription? _authSub;
+
+  @override
+  void dispose() {
+    _authSub?.cancel();
+    super.dispose();
+  }
 
   @override
   void initState() {
@@ -68,7 +76,7 @@ class _AuthGateState extends State<_AuthGate> {
       if (mounted && _loading) setState(() => _loading = false);
     });
 
-    FirebaseService.authStream.listen((user) async {
+    _authSub = FirebaseService.authStream.listen((user) async {
       if (!mounted) return;
       final sp = context.read<StateProvider>();
       try {
@@ -103,7 +111,7 @@ class _AuthGateState extends State<_AuthGate> {
               const CircularProgressIndicator(color: Colors.white),
               const SizedBox(height: 20),
               Text('Starting MMM…',
-                style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 14)),
+                style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 14)),
             ],
           ),
         ),

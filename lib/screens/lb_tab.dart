@@ -48,7 +48,7 @@ class _LbTabState extends State<LbTab> {
         ])),
       Expanded(child: filtered.isEmpty
         ? Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-            Icon(Icons.handshake_outlined, size: 64, color: kTextLight.withOpacity(0.5)),
+            Icon(Icons.handshake_outlined, size: 64, color: kTextLight.withValues(alpha: 0.5)),
             const SizedBox(height: 12),
             const Text('No LB entries', style: TextStyle(color: kTextMid)),
           ]))
@@ -86,7 +86,7 @@ class _LbTabState extends State<LbTab> {
   Widget _LbSumTile(String label, double val, Color color) => Expanded(child: Container(
     padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 14),
     decoration: BoxDecoration(
-      color: Colors.white.withOpacity(0.12),
+      color: Colors.white.withValues(alpha: 0.12),
       borderRadius: BorderRadius.circular(12),
     ),
     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -124,7 +124,7 @@ class _LbCard extends StatelessWidget {
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(children: [
           Container(width: 38, height: 38,
-            decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
+            decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
             child: Icon(isLent ? Icons.arrow_upward : Icons.arrow_downward, color: color, size: 20)),
           const SizedBox(width: 12),
           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -142,14 +142,14 @@ class _LbCard extends StatelessWidget {
         if (entry.isSettled) ...[
           const SizedBox(height: 8),
           Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(color: kAccent.withOpacity(0.1), borderRadius: BorderRadius.circular(20)),
+            decoration: BoxDecoration(color: kAccent.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(20)),
             child: const Text('✓ Settled', style: TextStyle(fontSize: 12, color: kAccent, fontWeight: FontWeight.w600))),
         ] else if (entry.repaid > 0) ...[
           const SizedBox(height: 8),
           ClipRRect(borderRadius: BorderRadius.circular(4),
             child: LinearProgressIndicator(
               value: entry.repaid / entry.amount,
-              backgroundColor: color.withOpacity(0.1),
+              backgroundColor: color.withValues(alpha: 0.1),
               valueColor: AlwaysStoppedAnimation(color),
               minHeight: 4,
             )),
@@ -159,9 +159,22 @@ class _LbCard extends StatelessWidget {
           Row(children: [
             TextButton(onPressed: () => _showRepayments(context), child: const Text('Repayments')),
             const Spacer(),
-            TextButton(onPressed: () => sp.deleteLbEntry(entry.id),
+            TextButton(
               style: TextButton.styleFrom(foregroundColor: kDanger),
-              child: const Text('Delete')),
+              child: const Text('Delete'),
+              onPressed: () => showDialog<bool>(
+                context: context,
+                builder: (ctx) => AlertDialog(
+                  title: const Text('Delete entry?'),
+                  content: Text('Remove "${entry.person}" (${formatINRFull(entry.amount)})? All repayments will also be deleted.'),
+                  actions: [
+                    TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+                    TextButton(onPressed: () => Navigator.pop(ctx, true),
+                      child: const Text('Delete', style: TextStyle(color: kDanger))),
+                  ],
+                ),
+              ).then((ok) { if (ok == true) sp.deleteLbEntry(entry.id); }),
+            ),
           ]),
         ],
       ]),

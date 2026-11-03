@@ -22,8 +22,8 @@ class DefaultsTab extends StatelessWidget {
         ])),
       Expanded(child: ListView(padding: const EdgeInsets.all(16), children: [
         Container(padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(color: kBlue.withOpacity(0.08),
-            border: Border.all(color: kBlue.withOpacity(0.3)),
+          decoration: BoxDecoration(color: kBlue.withValues(alpha: 0.08),
+            border: Border.all(color: kBlue.withValues(alpha: 0.3)),
             borderRadius: BorderRadius.circular(12)),
           child: const Text(
             'These are copied to a new month when you tap "Copy Defaults to Start". '
@@ -49,7 +49,18 @@ class DefaultsTab extends StatelessWidget {
                     shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
                     builder: (_) => _DefaultForm(expense: e));
                 } else {
-                  sp.deleteDefault(e.id);
+                  showDialog<bool>(
+                    context: context,
+                    builder: (ctx) => AlertDialog(
+                      title: const Text('Delete default?'),
+                      content: Text('Remove "${e.name}"?'),
+                      actions: [
+                        TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+                        TextButton(onPressed: () => Navigator.pop(ctx, true),
+                          child: const Text('Delete', style: TextStyle(color: kDanger))),
+                      ],
+                    ),
+                  ).then((ok) { if (ok == true) sp.deleteDefault(e.id); });
                 }
               }),
             ]),

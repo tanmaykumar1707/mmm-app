@@ -14,6 +14,7 @@ class _ShareAccessScreenState extends State<ShareAccessScreen> {
   final _emailCtrl = TextEditingController();
   List<Map<String, dynamic>> _grantees = [];
   bool _loading = true;
+  bool _submitting = false;
 
   @override
   void initState() {
@@ -35,8 +36,8 @@ class _ShareAccessScreenState extends State<ShareAccessScreen> {
       appBar: AppBar(title: const Text('Manage Access Sharing')),
       body: ListView(padding: const EdgeInsets.all(20), children: [
         Container(padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(color: kBlue.withOpacity(0.08),
-            border: Border.all(color: kBlue.withOpacity(0.3)), borderRadius: BorderRadius.circular(12)),
+          decoration: BoxDecoration(color: kBlue.withValues(alpha: 0.08),
+            border: Border.all(color: kBlue.withValues(alpha: 0.3)), borderRadius: BorderRadius.circular(12)),
           child: const Text(
             'Grant read-only access to your data. The person must have signed in to MMM at least once.',
             style: TextStyle(fontSize: 13, color: kTextMid))),
@@ -49,22 +50,29 @@ class _ShareAccessScreenState extends State<ShareAccessScreen> {
             decoration: const InputDecoration(labelText: 'Email address'))),
           const SizedBox(width: 10),
           ElevatedButton(
-            onPressed: () async {
+            onPressed: _submitting ? null : () async {
               final email = _emailCtrl.text.trim();
               if (email.isEmpty || sp.myUid == null) return;
+              setState(() => _submitting = true);
               try {
                 await FirebaseService.grantAccess(sp.myUid!, email);
                 _emailCtrl.clear();
                 await sp.loadSharedWorkspaces();
                 _load();
                 if (mounted) ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Access granted to $email')));
+                  SnackBar(content: Text('Access granted to $email'),
+                    backgroundColor: Colors.green));
               } catch (e) {
                 if (mounted) ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('$e')));
+                  SnackBar(content: Text('$e'), backgroundColor: Colors.red));
+              } finally {
+                if (mounted) setState(() => _submitting = false);
               }
             },
-            child: const Text('Grant'),
+            child: _submitting
+              ? const SizedBox(width: 18, height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+              : const Text('Grant'),
           ),
         ]),
         const SizedBox(height: 24),
@@ -80,7 +88,7 @@ class _ShareAccessScreenState extends State<ShareAccessScreen> {
             subtitle: Text(g['email'] ?? ''),
             trailing: Row(mainAxisSize: MainAxisSize.min, children: [
               Container(padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(color: kAccent.withOpacity(0.1), borderRadius: BorderRadius.circular(20)),
+                decoration: BoxDecoration(color: kAccent.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(20)),
                 child: const Text('read-only', style: TextStyle(fontSize: 11, color: kAccent))),
               IconButton(
                 icon: const Icon(Icons.remove_circle_outline, color: kDanger),

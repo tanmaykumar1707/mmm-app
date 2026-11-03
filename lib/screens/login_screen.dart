@@ -27,7 +27,7 @@ class LoginScreen extends StatelessWidget {
                   Container(
                     width: 90, height: 90,
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.15),
+                      color: Colors.white.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(24),
                     ),
                     child: const Icon(Icons.account_balance_wallet, size: 48, color: Colors.white),
@@ -38,7 +38,7 @@ class LoginScreen extends StatelessWidget {
                       color: Colors.white, letterSpacing: -0.5)),
                   const SizedBox(height: 8),
                   Text('Track expenses · Credit cards · Loans',
-                    style: TextStyle(fontSize: 14, color: Colors.white.withOpacity(0.75))),
+                    style: TextStyle(fontSize: 14, color: Colors.white.withValues(alpha: 0.75))),
                   const SizedBox(height: 64),
                   const _GoogleSignInButton(),
                 ],
@@ -69,7 +69,7 @@ class _GoogleSignInButtonState extends State<_GoogleSignInButton> {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(16),
-          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.15), blurRadius: 12, offset: const Offset(0,4))],
+          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.15), blurRadius: 12, offset: const Offset(0,4))],
         ),
         child: _loading
           ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2))

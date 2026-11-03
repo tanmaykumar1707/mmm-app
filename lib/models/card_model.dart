@@ -43,34 +43,38 @@ class CardTxn {
   String id, spentFor, spentBy;
   double amount;
   bool nextBill;
+  bool paid;
   String date;
 
   CardTxn({required this.id, required this.spentFor, required this.spentBy,
-    required this.amount, required this.date, this.nextBill = false});
+    required this.amount, required this.date, this.nextBill = false, this.paid = false});
 
   factory CardTxn.fromMap(Map m) => CardTxn(
     id: m['id'] ?? '', spentFor: m['spentFor'] ?? '',
     spentBy: m['spentBy'] ?? '', amount: (m['amount'] ?? 0).toDouble(),
     date: m['date'] ?? '', nextBill: m['nextBill'] ?? false,
+    paid: m['paid'] ?? false,
   );
 
   Map toMap() => {'id': id, 'spentFor': spentFor, 'spentBy': spentBy,
-    'amount': amount, 'date': date, 'nextBill': nextBill};
+    'amount': amount, 'date': date, 'nextBill': nextBill, 'paid': paid};
 }
 
 class CashTxn {
   String id, spentFor, spentBy, source, date;
   double amount;
+  bool paid;
 
   CashTxn({required this.id, required this.spentFor, required this.spentBy,
-    required this.source, required this.date, required this.amount});
+    required this.source, required this.date, required this.amount, this.paid = false});
 
   factory CashTxn.fromMap(Map m) => CashTxn(
     id: m['id'] ?? '', spentFor: m['spentFor'] ?? '',
     spentBy: m['spentBy'] ?? '', source: m['source'] ?? '',
     date: m['date'] ?? '', amount: (m['amount'] ?? 0).toDouble(),
+    paid: m['paid'] ?? false,
   );
 
   Map toMap() => {'id': id, 'spentFor': spentFor, 'spentBy': spentBy,
-    'source': source, 'date': date, 'amount': amount};
+    'source': source, 'date': date, 'amount': amount, 'paid': paid};
 }
