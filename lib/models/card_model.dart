@@ -45,19 +45,22 @@ class CardTxn {
   bool nextBill;
   bool paid;
   String date;
+  String? splitGroupId;
 
   CardTxn({required this.id, required this.spentFor, required this.spentBy,
-    required this.amount, required this.date, this.nextBill = false, this.paid = false});
+    required this.amount, required this.date, this.nextBill = false,
+    this.paid = false, this.splitGroupId});
 
   factory CardTxn.fromMap(Map m) => CardTxn(
     id: m['id'] ?? '', spentFor: m['spentFor'] ?? '',
     spentBy: m['spentBy'] ?? '', amount: (m['amount'] ?? 0).toDouble(),
     date: m['date'] ?? '', nextBill: m['nextBill'] ?? false,
-    paid: m['paid'] ?? false,
+    paid: m['paid'] ?? false, splitGroupId: m['splitGroupId'],
   );
 
   Map toMap() => {'id': id, 'spentFor': spentFor, 'spentBy': spentBy,
-    'amount': amount, 'date': date, 'nextBill': nextBill, 'paid': paid};
+    'amount': amount, 'date': date, 'nextBill': nextBill, 'paid': paid,
+    'splitGroupId': splitGroupId};
 }
 
 class CashTxn {

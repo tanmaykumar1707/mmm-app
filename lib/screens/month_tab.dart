@@ -274,9 +274,16 @@ class _ExpenseCard extends StatelessWidget {
   );
 }
 
-class _ShareSheet extends StatelessWidget {
+class _ShareSheet extends StatefulWidget {
   final String text;
   const _ShareSheet({required this.text});
+  @override
+  State<_ShareSheet> createState() => _ShareSheetState();
+}
+
+class _ShareSheetState extends State<_ShareSheet> {
+  final _shareKey = GlobalKey();
+
   @override
   Widget build(BuildContext context) => Padding(
     padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
@@ -286,7 +293,7 @@ class _ShareSheet extends StatelessWidget {
       Container(
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(color: kBg, borderRadius: BorderRadius.circular(10)),
-        child: Text(text, style: const TextStyle(fontSize: 12, fontFamily: 'monospace', color: kTextDark)),
+        child: Text(widget.text, style: const TextStyle(fontSize: 12, fontFamily: 'monospace', color: kTextDark)),
       ),
       const SizedBox(height: 16),
       Row(children: [
@@ -294,19 +301,22 @@ class _ShareSheet extends StatelessWidget {
           icon: const Icon(Icons.copy, size: 16),
           label: const Text('Copy'),
           onPressed: () {
-            Clipboard.setData(ClipboardData(text: text));
+            Clipboard.setData(ClipboardData(text: widget.text));
             Navigator.pop(context);
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text('Copied to clipboard'), duration: Duration(seconds: 2)));
           },
         )),
         const SizedBox(width: 12),
-        Expanded(child: ElevatedButton.icon(
+        Expanded(key: _shareKey, child: ElevatedButton.icon(
           icon: const Icon(Icons.share_rounded, size: 16),
           label: const Text('Share'),
           onPressed: () {
+            final box = _shareKey.currentContext?.findRenderObject() as RenderBox?;
+            final origin = box == null ? null
+                : box.localToGlobal(Offset.zero) & box.size;
             Navigator.pop(context);
-            Share.share(text);
+            Share.share(widget.text, sharePositionOrigin: origin);
           },
         )),
       ]),

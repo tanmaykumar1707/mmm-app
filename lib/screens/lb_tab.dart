@@ -159,6 +159,7 @@ class _LbCard extends StatelessWidget {
           Row(children: [
             TextButton(onPressed: () => _showRepayments(context), child: const Text('Repayments')),
             const Spacer(),
+            TextButton(onPressed: () => _showEdit(context), child: const Text('Edit')),
             TextButton(
               style: TextButton.styleFrom(foregroundColor: kDanger),
               child: const Text('Delete'),
@@ -186,11 +187,17 @@ class _LbCard extends StatelessWidget {
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (_) => _RepaymentsSheet(entry: entry, sp: sp));
   }
+
+  void _showEdit(BuildContext context) {
+    showModalBottomSheet(context: context, isScrollControlled: true,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (_) => _AddLbSheet(type: entry.type, sp: sp, existing: entry));
+  }
 }
 
 class _AddLbSheet extends StatefulWidget {
-  final String type; final StateProvider sp;
-  const _AddLbSheet({required this.type, required this.sp});
+  final String type; final StateProvider sp; final LbEntry? existing;
+  const _AddLbSheet({required this.type, required this.sp, this.existing});
   @override
   State<_AddLbSheet> createState() => _AddLbSheetState();
 }
@@ -199,44 +206,119 @@ class _AddLbSheetState extends State<_AddLbSheet> {
   final _personCtrl = TextEditingController();
   final _reasonCtrl = TextEditingController();
   final _amtCtrl    = TextEditingController();
-  final _dueCtrl    = TextEditingController();
+  DateTime _date = DateTime.now();
+  DateTime? _dueDate;
 
   @override
-  Widget build(BuildContext context) => Padding(
-    padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
-    child: Padding(padding: const EdgeInsets.all(20), child: Column(mainAxisSize: MainAxisSize.min, children: [
-      Text(widget.type == 'lent' ? 'I Lent Money' : 'I Borrowed Money',
-        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
-      const SizedBox(height: 16),
-      TextField(controller: _personCtrl, decoration: const InputDecoration(labelText: 'Person name')),
-      const SizedBox(height: 12),
-      TextField(controller: _reasonCtrl, decoration: const InputDecoration(labelText: 'Reason')),
-      const SizedBox(height: 12),
-      TextField(controller: _amtCtrl, keyboardType: TextInputType.number,
-        decoration: const InputDecoration(labelText: 'Amount', prefixText: '₹')),
-      const SizedBox(height: 12),
-      TextField(controller: _dueCtrl, decoration: const InputDecoration(labelText: 'Due date (YYYY-MM-DD, optional)')),
-      const SizedBox(height: 16),
-      Row(children: [
-        Expanded(child: OutlinedButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel'))),
-        const SizedBox(width: 12),
-        Expanded(child: ElevatedButton(
-          onPressed: () {
-            final amt = double.tryParse(_amtCtrl.text) ?? 0;
-            if (_personCtrl.text.isEmpty || amt <= 0) return;
-            widget.sp.addLbEntry(LbEntry(
-              id: genId(), type: widget.type,
-              person: _personCtrl.text.trim(), reason: _reasonCtrl.text.trim(),
-              date: DateTime.now().toIso8601String().split('T')[0],
-              amount: amt, dueDate: _dueCtrl.text.trim().isNotEmpty ? _dueCtrl.text.trim() : null,
-            ));
-            Navigator.pop(context);
-          },
-          child: const Text('Save'),
-        )),
-      ]),
-    ])),
-  );
+  void initState() {
+    super.initState();
+    final e = widget.existing;
+    if (e != null) {
+      _personCtrl.text = e.person;
+      _reasonCtrl.text = e.reason;
+      _amtCtrl.text    = e.amount.toString();
+      _date = DateTime.tryParse(e.date) ?? DateTime.now();
+      _dueDate = e.dueDate != null ? DateTime.tryParse(e.dueDate!) : null;
+    }
+  }
+
+  Future<void> _pickDate() async {
+    final d = await showDatePicker(
+      context: context, initialDate: _date,
+      firstDate: DateTime(2000), lastDate: DateTime(2100),
+    );
+    if (d != null) setState(() => _date = d);
+  }
+
+  Future<void> _pickDueDate() async {
+    final d = await showDatePicker(
+      context: context, initialDate: _dueDate ?? DateTime.now(),
+      firstDate: DateTime(2000), lastDate: DateTime(2100),
+    );
+    if (d != null) setState(() => _dueDate = d);
+  }
+
+  String _fmt(DateTime d) => '${d.day}/${d.month}/${d.year}';
+
+  Widget _dateTile(String label, DateTime? value, VoidCallback onTap, {bool clearable = false}) =>
+    GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+        decoration: BoxDecoration(
+          border: Border.all(color: Colors.grey.shade400),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(children: [
+          const Icon(Icons.calendar_today, size: 16, color: kTextMid),
+          const SizedBox(width: 8),
+          Expanded(child: Text(
+            value != null ? '$label: ${_fmt(value)}' : '$label: (optional)',
+            style: TextStyle(fontSize: 14, color: value != null ? kTextDark : kTextLight),
+          )),
+          if (clearable && value != null)
+            GestureDetector(
+              onTap: () => setState(() => _dueDate = null),
+              child: const Icon(Icons.close, size: 16, color: kTextLight),
+            )
+          else
+            const Icon(Icons.arrow_drop_down, color: kTextLight),
+        ]),
+      ),
+    );
+
+  @override
+  Widget build(BuildContext context) {
+    final isEdit = widget.existing != null;
+    return Padding(
+      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      child: Padding(padding: const EdgeInsets.all(20), child: Column(mainAxisSize: MainAxisSize.min, children: [
+        Text(isEdit ? 'Edit Entry' : (widget.type == 'lent' ? 'I Lent Money' : 'I Borrowed Money'),
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+        const SizedBox(height: 16),
+        TextField(controller: _personCtrl, decoration: const InputDecoration(labelText: 'Person name')),
+        const SizedBox(height: 12),
+        TextField(controller: _reasonCtrl, decoration: const InputDecoration(labelText: 'Reason')),
+        const SizedBox(height: 12),
+        TextField(controller: _amtCtrl, keyboardType: TextInputType.number,
+          decoration: const InputDecoration(labelText: 'Amount', prefixText: '₹')),
+        const SizedBox(height: 12),
+        _dateTile('Date', _date, _pickDate),
+        const SizedBox(height: 12),
+        _dateTile('Due date', _dueDate, _pickDueDate, clearable: true),
+        const SizedBox(height: 16),
+        Row(children: [
+          Expanded(child: OutlinedButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel'))),
+          const SizedBox(width: 12),
+          Expanded(child: ElevatedButton(
+            onPressed: () {
+              final amt = double.tryParse(_amtCtrl.text) ?? 0;
+              if (_personCtrl.text.isEmpty || amt <= 0) return;
+              final dateStr = _date.toIso8601String().split('T')[0];
+              final dueDateStr = _dueDate?.toIso8601String().split('T')[0];
+              if (isEdit) {
+                final updated = widget.existing!;
+                updated.person   = _personCtrl.text.trim();
+                updated.reason   = _reasonCtrl.text.trim();
+                updated.amount   = amt;
+                updated.date     = dateStr;
+                updated.dueDate  = dueDateStr;
+                widget.sp.updateLbEntry(updated);
+              } else {
+                widget.sp.addLbEntry(LbEntry(
+                  id: genId(), type: widget.type,
+                  person: _personCtrl.text.trim(), reason: _reasonCtrl.text.trim(),
+                  date: dateStr, amount: amt, dueDate: dueDateStr,
+                ));
+              }
+              Navigator.pop(context);
+            },
+            child: const Text('Save'),
+          )),
+        ]),
+      ])),
+    );
+  }
 }
 
 class _RepaymentsSheet extends StatefulWidget {

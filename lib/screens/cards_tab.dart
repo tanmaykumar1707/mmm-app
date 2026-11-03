@@ -332,22 +332,43 @@ class _CardSection extends StatelessWidget {
   }
 
   List<Widget> _buildPersonGroupRows(List<CardTxn> txns) {
-    final groups = <String, List<CardTxn>>{};
+    // Separate split groups from regular txns
+    final splitGroups = <String, List<CardTxn>>{};
+    final regularTxns = <CardTxn>[];
     for (final t in txns) {
-      final p = t.spentBy.isEmpty ? 'Unknown' : t.spentBy;
-      groups.putIfAbsent(p, () => []).add(t);
-    }
-    final sorted = groups.entries.toList()
-      ..sort((a, b) => b.value.fold(0.0, (s, t) => s + t.amount)
-          .compareTo(a.value.fold(0.0, (s, t) => s + t.amount)));
-    final widgets = <Widget>[];
-    for (final group in sorted) {
-      if (sorted.length > 1) {
-        final groupTotal = group.value.fold(0.0, (s, t) => s + t.amount);
-        widgets.add(_PersonGroupHeader(group.key, groupTotal));
+      if (t.splitGroupId != null && t.splitGroupId!.isNotEmpty) {
+        splitGroups.putIfAbsent(t.splitGroupId!, () => []).add(t);
+      } else {
+        regularTxns.add(t);
       }
-      widgets.addAll(group.value.map((t) => _TxnRow(t: t, card: card, monthKey: monthKey, sp: sp)));
     }
+
+    final widgets = <Widget>[];
+
+    // Split groups shown as collapsible rows
+    for (final group in splitGroups.values) {
+      widgets.add(_SplitGroupRow(txns: group, card: card, monthKey: monthKey, sp: sp));
+    }
+
+    // Regular txns grouped by person
+    if (regularTxns.isNotEmpty) {
+      final personGroups = <String, List<CardTxn>>{};
+      for (final t in regularTxns) {
+        final p = t.spentBy.isEmpty ? 'Unknown' : t.spentBy;
+        personGroups.putIfAbsent(p, () => []).add(t);
+      }
+      final sorted = personGroups.entries.toList()
+        ..sort((a, b) => b.value.fold(0.0, (s, t) => s + t.amount)
+            .compareTo(a.value.fold(0.0, (s, t) => s + t.amount)));
+      for (final group in sorted) {
+        if (sorted.length > 1 || splitGroups.isNotEmpty) {
+          final groupTotal = group.value.fold(0.0, (s, t) => s + t.amount);
+          widgets.add(_PersonGroupHeader(group.key, groupTotal));
+        }
+        widgets.addAll(group.value.map((t) => _TxnRow(t: t, card: card, monthKey: monthKey, sp: sp)));
+      }
+    }
+
     return widgets;
   }
 
@@ -371,6 +392,81 @@ class _CardSection extends StatelessWidget {
       Text(formatINRFull(total), style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: color)),
     ]),
   );
+}
+
+class _SplitGroupRow extends StatefulWidget {
+  final List<CardTxn> txns;
+  final CreditCard card; final String monthKey; final StateProvider sp;
+  const _SplitGroupRow({required this.txns, required this.card,
+    required this.monthKey, required this.sp});
+  @override
+  State<_SplitGroupRow> createState() => _SplitGroupRowState();
+}
+
+class _SplitGroupRowState extends State<_SplitGroupRow> {
+  bool _expanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final txns = widget.txns;
+    final total = txns.fold(0.0, (s, t) => s + t.amount);
+    final allPaid = txns.every((t) => t.paid);
+    final label = txns.first.spentFor;
+    final nPeople = txns.length;
+
+    return Opacity(
+      opacity: allPaid ? 0.5 : 1.0,
+      child: Container(
+        margin: const EdgeInsets.symmetric(vertical: 3),
+        decoration: BoxDecoration(
+          color: kPrimary.withValues(alpha: 0.04),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: kPrimary.withValues(alpha: 0.15)),
+        ),
+        child: Column(children: [
+          // Header row — tap to expand
+          InkWell(
+            borderRadius: BorderRadius.circular(8),
+            onTap: () => setState(() => _expanded = !_expanded),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              child: Row(children: [
+                const Icon(Icons.call_split, size: 15, color: kPrimary),
+                const SizedBox(width: 6),
+                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text(label, style: TextStyle(
+                    fontSize: 14, fontWeight: FontWeight.w500,
+                    decoration: allPaid ? TextDecoration.lineThrough : null,
+                  )),
+                  const SizedBox(height: 2),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: kPrimary.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text('Split · $nPeople people',
+                      style: const TextStyle(fontSize: 10, color: kPrimary, fontWeight: FontWeight.w600)),
+                  ),
+                ])),
+                Text(formatINRFull(total),
+                  style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
+                const SizedBox(width: 4),
+                Icon(_expanded ? Icons.expand_less : Icons.expand_more,
+                  size: 18, color: kTextLight),
+              ]),
+            ),
+          ),
+          // Expanded: per-person rows
+          if (_expanded) ...[
+            const Divider(height: 1, indent: 12, endIndent: 12),
+            ...txns.map((t) => _TxnRow(t: t, card: widget.card,
+                monthKey: widget.monthKey, sp: widget.sp, isSubRow: true)),
+          ],
+        ]),
+      ),
+    );
+  }
 }
 
 class _ByPersonBreakdown extends StatelessWidget {
@@ -452,26 +548,38 @@ class _ByPersonBreakdown extends StatelessWidget {
 }
 
 class _TxnRow extends StatelessWidget {
-  final CardTxn t; final CreditCard card; final String monthKey; final StateProvider sp;
-  const _TxnRow({required this.t, required this.card, required this.monthKey, required this.sp});
+  final CardTxn t; final CreditCard card; final String monthKey;
+  final StateProvider sp; final bool isSubRow;
+  const _TxnRow({required this.t, required this.card, required this.monthKey,
+    required this.sp, this.isSubRow = false});
   @override
   Widget build(BuildContext context) => Opacity(
     opacity: t.paid ? 0.5 : 1.0,
     child: ListTile(
       dense: true,
-      contentPadding: EdgeInsets.zero,
+      contentPadding: isSubRow
+          ? const EdgeInsets.only(left: 16, right: 0)
+          : EdgeInsets.zero,
       title: Row(children: [
-        Expanded(child: Text(t.spentFor, style: TextStyle(
-          fontSize: 14, fontWeight: FontWeight.w500,
-          decoration: t.paid ? TextDecoration.lineThrough : null))),
-        if (t.paid) Container(
+        if (isSubRow) ...[
+          const Icon(Icons.person_outline, size: 13, color: kTextLight),
+          const SizedBox(width: 4),
+          Text(t.spentBy.isEmpty ? 'Unknown' : t.spentBy,
+            style: const TextStyle(fontSize: 13, color: kTextMid)),
+          const Spacer(),
+        ] else
+          Expanded(child: Text(t.spentFor, style: TextStyle(
+            fontSize: 14, fontWeight: FontWeight.w500,
+            decoration: t.paid ? TextDecoration.lineThrough : null))),
+        if (!isSubRow && t.paid) Container(
           margin: const EdgeInsets.only(left: 6),
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
           decoration: BoxDecoration(color: kAccent.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(10)),
           child: const Text('Paid', style: TextStyle(fontSize: 10, color: kAccent, fontWeight: FontWeight.w600)),
         ),
       ]),
-      subtitle: Text('${t.spentBy} · ${t.date}', style: const TextStyle(fontSize: 11, color: kTextLight)),
+      subtitle: isSubRow ? null
+          : Text('${t.spentBy} · ${t.date}', style: const TextStyle(fontSize: 11, color: kTextLight)),
       trailing: Row(mainAxisSize: MainAxisSize.min, children: [
         Text(formatINRFull(t.amount), style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
         if (!sp.isReadOnly) PopupMenuButton(itemBuilder: (_) => [
@@ -517,12 +625,21 @@ class _AddTxnSheet extends StatefulWidget {
   State<_AddTxnSheet> createState() => _AddTxnSheetState();
 }
 
+class _SplitRow {
+  final String person;
+  final TextEditingController ctrl;
+  bool included;
+  _SplitRow(this.person) : ctrl = TextEditingController(), included = true;
+}
+
 class _AddTxnSheetState extends State<_AddTxnSheet> {
   final _forCtrl = TextEditingController();
   final _amtCtrl = TextEditingController();
   String? _spentBy;
   bool _nextBill = false;
   late DateTime _date;
+  bool _splitMode = false;
+  List<_SplitRow> _splits = [];
 
   bool get _isEdit => widget.existing != null;
 
@@ -539,40 +656,169 @@ class _AddTxnSheetState extends State<_AddTxnSheet> {
     } else {
       _spentBy = widget.sp.state.people.isNotEmpty ? widget.sp.state.people.first : null;
       _date = DateTime.now();
+      _splits = widget.sp.state.people.map((p) => _SplitRow(p)).toList();
     }
+  }
+
+  @override
+  void dispose() {
+    _forCtrl.dispose(); _amtCtrl.dispose();
+    for (final s in _splits) s.ctrl.dispose();
+    super.dispose();
+  }
+
+  void _equalSplit() {
+    final total = double.tryParse(_amtCtrl.text) ?? 0;
+    final active = _splits.where((s) => s.included).toList();
+    if (active.isEmpty || total <= 0) return;
+    final share = (total / active.length);
+    final shareStr = share % 1 == 0 ? share.toStringAsFixed(0) : share.toStringAsFixed(2);
+    setState(() {
+      for (final s in _splits) {
+        s.ctrl.text = s.included ? shareStr : '';
+      }
+    });
   }
 
   Future<void> _pickDate() async {
     final picked = await showDatePicker(
-      context: context,
-      initialDate: _date,
-      firstDate: DateTime(2020),
-      lastDate: DateTime(2030),
+      context: context, initialDate: _date,
+      firstDate: DateTime(2020), lastDate: DateTime(2030),
     );
     if (picked != null) setState(() => _date = picked);
+  }
+
+  void _save() {
+    if (_forCtrl.text.isEmpty) return;
+    final dateStr = '${_date.year}-${_date.month.toString().padLeft(2,'0')}-${_date.day.toString().padLeft(2,'0')}';
+
+    if (_splitMode && !_isEdit) {
+      final entries = _splits.where((s) => s.included).map((s) {
+        final amt = double.tryParse(s.ctrl.text) ?? 0;
+        return (person: s.person, amt: amt);
+      }).where((e) => e.amt > 0).toList();
+      if (entries.isEmpty) return;
+      final groupId = genId();
+      for (final e in entries) {
+        widget.sp.addCardTxn(widget.card.id, widget.monthKey, CardTxn(
+          id: genId(), spentFor: _forCtrl.text.trim(),
+          spentBy: e.person, amount: e.amt, date: dateStr, nextBill: _nextBill,
+          splitGroupId: groupId,
+        ));
+      }
+    } else {
+      final amt = double.tryParse(_amtCtrl.text) ?? 0;
+      if (amt <= 0) return;
+      if (_isEdit) {
+        widget.sp.updateCardTxn(widget.card.id, widget.monthKey, CardTxn(
+          id: widget.existing!.id, spentFor: _forCtrl.text.trim(),
+          spentBy: _spentBy ?? '', amount: amt, date: dateStr,
+          nextBill: _nextBill, paid: widget.existing!.paid,
+        ));
+      } else {
+        widget.sp.addCardTxn(widget.card.id, widget.monthKey, CardTxn(
+          id: genId(), spentFor: _forCtrl.text.trim(),
+          spentBy: _spentBy ?? '', amount: amt, date: dateStr, nextBill: _nextBill,
+        ));
+      }
+    }
+    Navigator.pop(context);
   }
 
   @override
   Widget build(BuildContext context) => Padding(
     padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
-    child: Padding(padding: const EdgeInsets.all(20), child: Column(mainAxisSize: MainAxisSize.min, children: [
+    child: SingleChildScrollView(child: Padding(padding: const EdgeInsets.all(20), child: Column(mainAxisSize: MainAxisSize.min, children: [
       Text(_isEdit ? 'Edit Transaction — ${widget.card.name}' : 'Add Transaction — ${widget.card.name}',
         style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
       const SizedBox(height: 16),
       TextField(controller: _forCtrl, decoration: const InputDecoration(labelText: 'Spent for')),
       const SizedBox(height: 12),
-      TextField(controller: _amtCtrl, keyboardType: TextInputType.number,
-        decoration: const InputDecoration(labelText: 'Amount', prefixText: '₹')),
-      const SizedBox(height: 12),
-      if (widget.sp.state.people.isNotEmpty)
-        DropdownButtonFormField<String>(
-          value: _spentBy,
-          decoration: const InputDecoration(labelText: 'Spent by'),
-          items: widget.sp.state.people.map((p) => DropdownMenuItem(value: p, child: Text(p))).toList(),
-          onChanged: (v) => setState(() => _spentBy = v),
+      // Split toggle (only for new txns with multiple people)
+      if (!_isEdit && widget.sp.state.people.length > 1) ...[
+        Row(children: [
+          const Text('Split between people', style: TextStyle(fontSize: 14)),
+          const Spacer(),
+          Switch(
+            value: _splitMode,
+            onChanged: (v) => setState(() => _splitMode = v),
+          ),
+        ]),
+        const SizedBox(height: 4),
+      ],
+      if (!_splitMode) ...[
+        TextField(controller: _amtCtrl, keyboardType: TextInputType.number,
+          decoration: const InputDecoration(labelText: 'Amount', prefixText: '₹')),
+        const SizedBox(height: 12),
+        if (widget.sp.state.people.isNotEmpty)
+          DropdownButtonFormField<String>(
+            value: _spentBy,
+            decoration: const InputDecoration(labelText: 'Spent by'),
+            items: widget.sp.state.people.map((p) => DropdownMenuItem(value: p, child: Text(p))).toList(),
+            onChanged: (v) => setState(() => _spentBy = v),
+          ),
+        const SizedBox(height: 12),
+      ] else ...[
+        // Total amount + equal split button
+        Row(children: [
+          Expanded(child: TextField(controller: _amtCtrl, keyboardType: TextInputType.number,
+            decoration: const InputDecoration(labelText: 'Total amount', prefixText: '₹'))),
+          const SizedBox(width: 10),
+          ElevatedButton(
+            onPressed: _equalSplit,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: kPrimary,
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+            ),
+            child: const Text('Equal\nSplit', textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 11, color: Colors.white)),
+          ),
+        ]),
+        const SizedBox(height: 12),
+        // Per-person amount rows
+        ..._splits.map((s) => Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: Row(children: [
+            Checkbox(
+              value: s.included,
+              onChanged: (v) => setState(() { s.included = v ?? true; if (!s.included) s.ctrl.clear(); }),
+            ),
+            Expanded(child: Text(s.person, style: const TextStyle(fontSize: 14))),
+            SizedBox(width: 110, child: TextField(
+              controller: s.ctrl,
+              keyboardType: TextInputType.number,
+              enabled: s.included,
+              textAlign: TextAlign.right,
+              decoration: const InputDecoration(
+                prefixText: '₹', isDense: true,
+                contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+              ),
+            )),
+          ]),
+        )),
+        const SizedBox(height: 4),
+        // Running total
+        ValueListenableBuilder(
+          valueListenable: _amtCtrl,
+          builder: (_, __, ___) {
+            final splitSum = _splits.where((s) => s.included)
+                .fold(0.0, (sum, s) => sum + (double.tryParse(s.ctrl.text) ?? 0));
+            final total = double.tryParse(_amtCtrl.text) ?? 0;
+            final diff = (total - splitSum).abs();
+            final balanced = diff < 0.01;
+            return Row(mainAxisAlignment: MainAxisAlignment.end, children: [
+              Text(
+                balanced ? '✓ Balanced' : 'Diff: ₹${diff.toStringAsFixed(2)}',
+                style: TextStyle(fontSize: 12,
+                  color: balanced ? kAccent : kDanger,
+                  fontWeight: FontWeight.w600),
+              ),
+            ]);
+          },
         ),
-      const SizedBox(height: 12),
-      // Date picker row
+        const SizedBox(height: 8),
+      ],
+      // Date picker
       GestureDetector(
         onTap: _pickDate,
         child: Container(
@@ -603,29 +849,11 @@ class _AddTxnSheetState extends State<_AddTxnSheet> {
         Expanded(child: OutlinedButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel'))),
         const SizedBox(width: 12),
         Expanded(child: ElevatedButton(
-          onPressed: () {
-            final amt = double.tryParse(_amtCtrl.text) ?? 0;
-            if (_forCtrl.text.isEmpty || amt <= 0) return;
-            final dateStr = '${_date.year}-${_date.month.toString().padLeft(2,'0')}-${_date.day.toString().padLeft(2,'0')}';
-            if (_isEdit) {
-              widget.sp.updateCardTxn(widget.card.id, widget.monthKey, CardTxn(
-                id: widget.existing!.id, spentFor: _forCtrl.text.trim(),
-                spentBy: _spentBy ?? '', amount: amt, date: dateStr,
-                nextBill: _nextBill, paid: widget.existing!.paid,
-              ));
-            } else {
-              widget.sp.addCardTxn(widget.card.id, widget.monthKey, CardTxn(
-                id: genId(), spentFor: _forCtrl.text.trim(),
-                spentBy: _spentBy ?? '', amount: amt, date: dateStr,
-                nextBill: _nextBill,
-              ));
-            }
-            Navigator.pop(context);
-          },
-          child: Text(_isEdit ? 'Save' : 'Add'),
+          onPressed: _save,
+          child: Text(_isEdit ? 'Save' : (_splitMode ? 'Add Split' : 'Add')),
         )),
       ]),
-    ])),
+    ]))),
   );
 }
 
@@ -906,9 +1134,16 @@ class _ManageCardsSheetState extends State<_ManageCardsSheet> {
   );
 }
 
-class _CardsShareSheet extends StatelessWidget {
+class _CardsShareSheet extends StatefulWidget {
   final String text;
   const _CardsShareSheet({required this.text});
+  @override
+  State<_CardsShareSheet> createState() => _CardsShareSheetState();
+}
+
+class _CardsShareSheetState extends State<_CardsShareSheet> {
+  final _shareKey = GlobalKey();
+
   @override
   Widget build(BuildContext context) => Padding(
     padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
@@ -920,7 +1155,7 @@ class _CardsShareSheet extends StatelessWidget {
         child: SingleChildScrollView(child: Container(
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(color: kBg, borderRadius: BorderRadius.circular(10)),
-          child: Text(text, style: const TextStyle(fontSize: 11, fontFamily: 'monospace', color: kTextDark)),
+          child: Text(widget.text, style: const TextStyle(fontSize: 11, fontFamily: 'monospace', color: kTextDark)),
         )),
       ),
       const SizedBox(height: 16),
@@ -929,19 +1164,22 @@ class _CardsShareSheet extends StatelessWidget {
           icon: const Icon(Icons.copy, size: 16),
           label: const Text('Copy'),
           onPressed: () {
-            Clipboard.setData(ClipboardData(text: text));
+            Clipboard.setData(ClipboardData(text: widget.text));
             Navigator.pop(context);
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(content: Text('Copied to clipboard'), duration: Duration(seconds: 2)));
           },
         )),
         const SizedBox(width: 12),
-        Expanded(child: ElevatedButton.icon(
+        Expanded(key: _shareKey, child: ElevatedButton.icon(
           icon: const Icon(Icons.share_rounded, size: 16),
           label: const Text('Share'),
           onPressed: () {
+            final box = _shareKey.currentContext?.findRenderObject() as RenderBox?;
+            final origin = box == null ? null
+                : box.localToGlobal(Offset.zero) & box.size;
             Navigator.pop(context);
-            Share.share(text);
+            Share.share(widget.text, sharePositionOrigin: origin);
           },
         )),
       ]),
