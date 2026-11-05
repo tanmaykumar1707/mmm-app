@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:share_plus/share_plus.dart';
 import '../services/vault_provider.dart';
 import '../models/vault_model.dart';
 import '../utils/constants.dart';
@@ -17,11 +18,42 @@ class VaultTab extends StatefulWidget {
 class _VaultTabState extends State<VaultTab> {
   String _search = '';
   final _searchCtrl = TextEditingController();
+  final Set<String> _selectedCats = {};
+  bool _catSelectMode = false;
 
   @override
   void dispose() {
     _searchCtrl.dispose();
     super.dispose();
+  }
+
+  void _enterCatSelect(String catId) {
+    setState(() { _catSelectMode = true; _selectedCats.add(catId); });
+  }
+
+  void _toggleCatSelect(String catId) {
+    setState(() {
+      if (_selectedCats.contains(catId)) {
+        _selectedCats.remove(catId);
+        if (_selectedCats.isEmpty) _catSelectMode = false;
+      } else {
+        _selectedCats.add(catId);
+      }
+    });
+  }
+
+  void _cancelCatSelect() => setState(() { _selectedCats.clear(); _catSelectMode = false; });
+
+  void _shareCats(VaultProvider vp) {
+    final activePerson = vp.activePersonId;
+    if (activePerson == null) return;
+    final cats = vp.categoriesForPerson(activePerson).where((c) => _selectedCats.contains(c.id));
+    final lines = cats.map((cat) {
+      final fieldLines = cat.fields.map((f) => '  ${f.label}: ${f.value ?? ''}').join('\n');
+      return '--- ${cat.name} ---\n$fieldLines';
+    }).join('\n\n');
+    Share.share(lines.isEmpty ? '(no fields)' : lines);
+    _cancelCatSelect();
   }
 
   @override
@@ -59,7 +91,8 @@ class _VaultTabState extends State<VaultTab> {
     final custom = filtered.where((c) => !c.isDefault).toList();
     final pinned = vp.pinnedFields;
 
-    return Column(children: [
+    return Stack(children: [
+      Column(children: [
       _buildHeader(vp),
       _buildPersonPills(vp),
       _buildSearchBar(),
@@ -100,13 +133,43 @@ class _VaultTabState extends State<VaultTab> {
               style: TextStyle(color: kTextLight, fontSize: 13))),
           ),
       ])),
+      ]),
+      // Floating share bar when categories are selected
+      if (_catSelectMode)
+        Positioned(
+          bottom: 24, left: 16, right: 16,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            decoration: BoxDecoration(
+              color: kTextDark, borderRadius: BorderRadius.circular(16),
+              boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.3), blurRadius: 20, offset: const Offset(0, 6))],
+            ),
+            child: Row(children: [
+              Text('${_selectedCats.length} selected', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 16)),
+              const Spacer(),
+              TextButton.icon(
+                onPressed: _cancelCatSelect,
+                icon: const Icon(Icons.close_rounded, size: 18, color: Colors.white54),
+                label: const Text('Cancel', style: TextStyle(color: Colors.white54, fontSize: 14)),
+              ),
+              const SizedBox(width: 6),
+              ElevatedButton.icon(
+                onPressed: () => _shareCats(vp),
+                icon: const Icon(Icons.ios_share_rounded, size: 18),
+                label: const Text('Share', style: TextStyle(fontSize: 14)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: kPrimary, foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                ),
+              ),
+            ]),
+          ),
+        ),
     ]);
   }
 
   // ── Header ─────────────────────────────────────────────────────────────────
   Widget _buildHeader(VaultProvider vp) {
-    final activePerson = vp.activePersonId;
-    final allCats = activePerson != null ? vp.categoriesForPerson(activePerson) : <VaultCategory>[];
     return Container(
       decoration: const BoxDecoration(
         gradient: LinearGradient(colors: [kPrimary, Color(0xFF7C3AED)],
@@ -145,26 +208,9 @@ class _VaultTabState extends State<VaultTab> {
             ),
           ]),
         ]),
-        const SizedBox(height: 10),
-        Row(children: [
-          _vStat('${allCats.length}', 'Categories'),
-          const SizedBox(width: 8),
-          _vStat('${vp.folders.length}', 'Folders'),
-          const SizedBox(width: 8),
-          _vStat('${vp.pinnedRefs.length}', 'Pinned'),
-        ]),
       ]),
     );
   }
-
-  Widget _vStat(String n, String lbl) => Expanded(child: Container(
-    padding: const EdgeInsets.symmetric(vertical: 7, horizontal: 10),
-    decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(10)),
-    child: Column(children: [
-      Text(n, style: const TextStyle(fontFamily: 'Outfit', fontSize: 14, fontWeight: FontWeight.w800, color: Colors.white)),
-      Text(lbl, style: const TextStyle(fontSize: 8, color: Colors.white60)),
-    ]),
-  ));
 
   // ── Person pills ───────────────────────────────────────────────────────────
   Widget _buildPersonPills(VaultProvider vp) => Container(
@@ -305,9 +351,21 @@ class _VaultTabState extends State<VaultTab> {
     return GridView.builder(
       shrinkWrap: true, physics: const NeverScrollableScrollPhysics(),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2, crossAxisSpacing: 8, mainAxisSpacing: 8, childAspectRatio: 1.5),
+        crossAxisCount: 2, crossAxisSpacing: 8, mainAxisSpacing: 8, childAspectRatio: 1.4),
       itemCount: cats.length,
-      itemBuilder: (_, i) => _CatCard(cat: cats[i], onTap: () => _openCat(context, cats[i])),
+      itemBuilder: (_, i) => _CatCard(
+        cat: cats[i],
+        onTap: () {
+          if (_catSelectMode) {
+            _toggleCatSelect(cats[i].id);
+          } else {
+            _openCat(context, cats[i]);
+          }
+        },
+        onLongPress: () => _enterCatSelect(cats[i].id),
+        isSelected: _selectedCats.contains(cats[i].id),
+        selectMode: _catSelectMode,
+      ),
     );
   }
 
@@ -493,7 +551,16 @@ class _VaultTabState extends State<VaultTab> {
 class _CatCard extends StatelessWidget {
   final VaultCategory cat;
   final VoidCallback onTap;
-  const _CatCard({required this.cat, required this.onTap});
+  final VoidCallback? onLongPress;
+  final bool isSelected;
+  final bool selectMode;
+  const _CatCard({
+    required this.cat,
+    required this.onTap,
+    this.onLongPress,
+    this.isSelected = false,
+    this.selectMode = false,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -501,11 +568,16 @@ class _CatCard extends StatelessWidget {
     final expiry = cat.nearestExpiryDays;
     return GestureDetector(
       onTap: onTap,
-      child: Container(
+      onLongPress: onLongPress,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
         decoration: BoxDecoration(
-          color: Colors.white, borderRadius: BorderRadius.circular(14),
-          boxShadow: [BoxShadow(color: color.withValues(alpha: 0.1), blurRadius: 8, offset: const Offset(0, 2))],
-          border: expiry != null && expiry <= 60 ? Border.all(color: kWarn.withValues(alpha: 0.5)) : null,
+          color: isSelected ? color.withValues(alpha: 0.08) : Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          boxShadow: isSelected ? [] : [BoxShadow(color: color.withValues(alpha: 0.1), blurRadius: 8, offset: const Offset(0, 2))],
+          border: isSelected
+              ? Border.all(color: color, width: 2)
+              : (expiry != null && expiry <= 60 ? Border.all(color: kWarn.withValues(alpha: 0.5)) : null),
         ),
         child: Stack(children: [
           Positioned(top: 0, left: 0, right: 0, child: Container(height: 3,
@@ -513,20 +585,25 @@ class _CatCard extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.fromLTRB(11, 14, 11, 10),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Container(width: 30, height: 30, decoration: BoxDecoration(
-                color: color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(9)),
-                child: Center(child: Text(cat.icon, style: const TextStyle(fontSize: 15)))),
+              Container(width: 38, height: 38, decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(10)),
+                child: Center(child: Text(cat.icon, style: const TextStyle(fontSize: 20)))),
               const SizedBox(height: 7),
-              Text(cat.name, style: const TextStyle(fontFamily: 'Outfit', fontSize: 11, fontWeight: FontWeight.w700, color: kTextDark),
+              Text(cat.name, style: const TextStyle(fontFamily: 'Outfit', fontSize: 15, fontWeight: FontWeight.w700, color: kTextDark),
                 maxLines: 1, overflow: TextOverflow.ellipsis),
               Text(expiry != null && expiry <= 60
                   ? 'Expires in ${expiry}d'
                   : '${cat.fieldCount} fields',
-                style: TextStyle(fontSize: 9, color: expiry != null && expiry <= 60 ? kWarn : kTextLight,
+                style: TextStyle(fontSize: 12, color: expiry != null && expiry <= 60 ? kWarn : kTextLight,
                   fontWeight: expiry != null && expiry <= 60 ? FontWeight.w600 : FontWeight.w400)),
             ]),
           ),
-          if (cat.isDefault)
+          // Selection indicator
+          if (selectMode)
+            Positioned(top: 8, left: 8, child: Icon(
+              isSelected ? Icons.check_circle_rounded : Icons.radio_button_unchecked_rounded,
+              size: 20, color: isSelected ? color : kTextLight)),
+          if (!selectMode && cat.isDefault && (expiry == null || expiry > 60))
             Positioned(top: 10, right: 8, child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
               decoration: BoxDecoration(color: kBg, borderRadius: BorderRadius.circular(5)),
@@ -538,6 +615,32 @@ class _CatCard extends StatelessWidget {
               decoration: BoxDecoration(color: kWarn.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(5)),
               child: Text('⚠ ${expiry}d', style: const TextStyle(fontSize: 7, fontWeight: FontWeight.w700, color: kWarn)),
             )),
+          // Drag handle — tap-and-drag this icon to drop into a folder
+          if (!selectMode)
+            Positioned(bottom: 6, right: 6,
+              child: Draggable<VaultCategory>(
+                data: cat,
+                feedback: Material(
+                  color: Colors.transparent,
+                  child: Opacity(opacity: 0.85, child: Container(
+                    width: 150, height: 100,
+                    decoration: BoxDecoration(
+                      color: Colors.white, borderRadius: BorderRadius.circular(14),
+                      boxShadow: [BoxShadow(color: color.withValues(alpha: 0.3), blurRadius: 12)],
+                      border: Border(top: BorderSide(color: color, width: 3)),
+                    ),
+                    padding: const EdgeInsets.all(10),
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text(cat.icon, style: const TextStyle(fontSize: 20)),
+                      const SizedBox(height: 4),
+                      Text(cat.name, style: const TextStyle(fontFamily: 'Outfit', fontSize: 13, fontWeight: FontWeight.w700, color: kTextDark),
+                        maxLines: 1, overflow: TextOverflow.ellipsis),
+                    ]),
+                  )),
+                ),
+                childWhenDragging: const Icon(Icons.drag_indicator_rounded, size: 15, color: kPrimary),
+                child: const Icon(Icons.drag_indicator_rounded, size: 15, color: kTextLight),
+              )),
         ]),
       ),
     );

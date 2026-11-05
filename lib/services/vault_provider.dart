@@ -70,15 +70,10 @@ class VaultProvider extends ChangeNotifier {
         if (!metaSnap.exists) {
           _status = VaultStatus.needsSetup;
         } else {
-          // Vault exists in DB but no key on device — try backup restore or ask for token
-          final backup = (metaSnap.value as Map?)?['encKeyBackup'] as String?;
-          if (backup != null) {
-            final restored = await _enc.restoreFromBackup(backup, uid);
-            if (restored) {
-              await _startListening(uid);
-              return;
-            }
-          }
+          // Vault exists in DB but no key on this device — always require token.
+          // We intentionally do NOT auto-restore from encKeyBackup because that
+          // backup is encrypted with a constant app secret, not the user's token.
+          // Auto-restoring would let any device bypass the token entirely.
           _status = VaultStatus.needsToken;
         }
         notifyListeners();

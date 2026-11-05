@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:share_plus/share_plus.dart';
 import '../services/vault_provider.dart';
 import '../models/vault_model.dart';
 import '../utils/constants.dart';
@@ -72,9 +73,7 @@ class _VaultCategoryDetailScreenState extends State<VaultCategoryDetailScreen> {
   }
 
   void _share(String text) {
-    Clipboard.setData(ClipboardData(text: text));
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Copied to clipboard'), duration: Duration(seconds: 2)));
+    Share.share(text);
   }
 
   void _copyField(VaultField f) {
@@ -112,9 +111,9 @@ class _VaultCategoryDetailScreenState extends State<VaultCategoryDetailScreen> {
               Row(mainAxisAlignment: MainAxisAlignment.end, children: [
                 TextButton.icon(
                   onPressed: _shareCategory,
-                  icon: const Icon(Icons.ios_share_rounded, size: 15),
+                  icon: const Icon(Icons.ios_share_rounded, size: 22),
                   label: const Text('Share Category'),
-                  style: TextButton.styleFrom(foregroundColor: _color, textStyle: const TextStyle(fontSize: 11)),
+                  style: TextButton.styleFrom(foregroundColor: _color, textStyle: const TextStyle(fontSize: 16)),
                 ),
               ]),
 
@@ -203,21 +202,21 @@ class _VaultCategoryDetailScreenState extends State<VaultCategoryDetailScreen> {
                 boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.3), blurRadius: 20, offset: const Offset(0, 6))],
               ),
               child: Row(children: [
-                Text('${_selected.length} selected', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13)),
+                Text('${_selected.length} selected', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 18)),
                 const Spacer(),
                 TextButton.icon(
                   onPressed: _cancelSelect,
-                  icon: const Icon(Icons.close_rounded, size: 15, color: Colors.white54),
-                  label: const Text('Cancel', style: TextStyle(color: Colors.white54, fontSize: 11)),
+                  icon: const Icon(Icons.close_rounded, size: 20, color: Colors.white54),
+                  label: const Text('Cancel', style: TextStyle(color: Colors.white54, fontSize: 15)),
                 ),
                 const SizedBox(width: 6),
                 ElevatedButton.icon(
                   onPressed: _shareSelected,
-                  icon: const Icon(Icons.ios_share_rounded, size: 14),
-                  label: const Text('Share', style: TextStyle(fontSize: 11)),
+                  icon: const Icon(Icons.ios_share_rounded, size: 20),
+                  label: const Text('Share', style: TextStyle(fontSize: 15)),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: _color, foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                   ),
                 ),
               ]),
@@ -416,27 +415,40 @@ class _FieldCardState extends State<_FieldCard> {
                 color: widget.isSelected ? widget.color : kTextLight, size: 20)),
           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(widget.field.label.toUpperCase(), style: TextStyle(
-              fontSize: 9, fontWeight: FontWeight.w700, letterSpacing: 0.6, color: widget.color)),
-            const SizedBox(height: 4),
+              fontSize: 13, fontWeight: FontWeight.w700, letterSpacing: 0.6, color: widget.color)),
+            const SizedBox(height: 6),
             if (_editing)
               TextField(
                 controller: _ctrl,
                 autofocus: true,
-                style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: kTextDark),
                 obscureText: _isHidden,
-                decoration: const InputDecoration(isDense: true, border: InputBorder.none, contentPadding: EdgeInsets.zero),
+                decoration: InputDecoration(
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: widget.color.withValues(alpha: 0.4))),
+                  enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: widget.color.withValues(alpha: 0.4))),
+                  focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: widget.color, width: 1.5)),
+                  filled: true, fillColor: Colors.white,
+                  suffixIcon: GestureDetector(
+                    onTap: () async {
+                      widget.field.value = _ctrl.text;
+                      final catId = widget.vp.categoriesForPerson(widget.vp.activePersonId ?? '')
+                          .firstWhere((c) => c.fields.any((f) => f.id == widget.field.id)).id;
+                      await widget.vp.saveField(catId, widget.field);
+                      if (mounted) setState(() => _editing = false);
+                    },
+                    child: const Icon(Icons.done_rounded, color: kPrimary, size: 24)),
+                ),
                 onSubmitted: (v) async {
                   widget.field.value = v;
-                  await widget.vp.saveField(
-                    // VaultCategory id passed via vp — we save the field directly
-                    widget.vp.categoriesForPerson(widget.vp.activePersonId ?? '').firstWhere((c) => c.fields.any((f) => f.id == widget.field.id)).id,
-                    widget.field,
-                  );
+                  final catId = widget.vp.categoriesForPerson(widget.vp.activePersonId ?? '')
+                      .firstWhere((c) => c.fields.any((f) => f.id == widget.field.id)).id;
+                  await widget.vp.saveField(catId, widget.field);
                   if (mounted) setState(() => _editing = false);
                 },
               )
             else
-              Text(_displayValue, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: kTextDark),
+              Text(_displayValue, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: kTextDark),
                 overflow: TextOverflow.ellipsis),
           ])),
           if (!widget.selectMode) ...[
@@ -445,24 +457,24 @@ class _FieldCardState extends State<_FieldCard> {
                 onTap: widget.onReveal,
                 child: Padding(padding: const EdgeInsets.symmetric(horizontal: 6),
                   child: Icon(widget.revealed ? Icons.visibility_off_rounded : Icons.visibility_rounded,
-                    size: 18, color: kTextLight))),
+                    size: 26, color: kTextLight))),
             GestureDetector(
               onTap: widget.onCopy,
               child: Padding(padding: const EdgeInsets.symmetric(horizontal: 6),
-                child: const Icon(Icons.copy_rounded, size: 16, color: kTextLight))),
+                child: const Icon(Icons.copy_rounded, size: 24, color: kTextLight))),
             GestureDetector(
               onTap: () => setState(() => _editing = !_editing),
               child: Padding(padding: const EdgeInsets.only(left: 6),
-                child: Icon(_editing ? Icons.done_rounded : Icons.edit_rounded, size: 16, color: kTextLight))),
+                child: Icon(_editing ? Icons.done_rounded : Icons.edit_rounded, size: 24, color: kTextLight))),
             PopupMenuButton<String>(
-              icon: const Icon(Icons.more_vert, size: 16, color: kTextLight),
+              icon: const Icon(Icons.more_vert, size: 24, color: kTextLight),
               onSelected: (v) {
                 if (v == 'pin') widget.onPin(widget.vp);
               },
               itemBuilder: (_) => [
                 const PopupMenuItem(value: 'pin', child: Row(children: [
-                  Icon(Icons.push_pin_rounded, size: 14),
-                  SizedBox(width: 6), Text('Pin to Quick Access', style: TextStyle(fontSize: 12)),
+                  Icon(Icons.push_pin_rounded, size: 18),
+                  SizedBox(width: 6), Text('Pin to Quick Access', style: TextStyle(fontSize: 15)),
                 ])),
               ],
             ),
