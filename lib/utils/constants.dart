@@ -1,7 +1,9 @@
+import 'dart:math';
 import 'package:flutter/material.dart';
 
-const kPrimary   = Color(0xFF1A3A6B);   // deep navy blue (like the screenshot)
-const kPrimaryLight = Color(0xFF2D5BE3);
+const kPrimary      = Color(0xFF4F46E5);   // indigo
+const kPrimaryLight = Color(0xFF818CF8);   // soft indigo
+const kPrimaryDark  = Color(0xFF3730A3);   // deep indigo
 const kAccent    = Color(0xFF00C853);   // green
 const kWarn      = Color(0xFFFFA726);   // orange/amber
 const kDanger    = Color(0xFFEF5350);   // red
@@ -55,5 +57,9 @@ String formatINRFull(double n) {
 String monthKey(int year, int month) =>
     '$year-${month.toString().padLeft(2, '0')}';
 
-String genId() => DateTime.now().millisecondsSinceEpoch.toRadixString(36) +
-    (DateTime.now().microsecond % 1000).toRadixString(36);
+final _genIdRng = Random.secure();
+String genId() {
+  final ts = DateTime.now().millisecondsSinceEpoch.toRadixString(36);
+  final rnd = List.generate(6, (_) => _genIdRng.nextInt(36).toRadixString(36)).join();
+  return '$ts$rnd';
+}

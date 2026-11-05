@@ -7,6 +7,7 @@ import 'month_tab.dart';
 import 'cards_tab.dart';
 import 'lb_tab.dart';
 import 'defaults_tab.dart';
+import 'vault_tab.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -22,6 +23,7 @@ class _HomeScreenState extends State<HomeScreen> {
     {'icon': Icons.credit_card_rounded,       'label': 'Cards'},
     {'icon': Icons.handshake_rounded,         'label': 'LB'},
     {'icon': Icons.settings_rounded,          'label': 'Defaults'},
+    {'icon': Icons.lock_rounded,              'label': 'Vault'},
   ];
 
   @override
@@ -40,31 +42,38 @@ class _HomeScreenState extends State<HomeScreen> {
       });
     }
     return Scaffold(
+      drawer: _AppDrawer(sp: sp),
       appBar: AppBar(
-        title: const Text('MMM'),
-        actions: [
+        backgroundColor: Colors.white,
+        elevation: 0,
+        shadowColor: Colors.transparent,
+        surfaceTintColor: Colors.transparent,
+        leading: Builder(builder: (ctx) => IconButton(
+          icon: const Icon(Icons.menu_rounded, color: kPrimary),
+          onPressed: () => Scaffold.of(ctx).openDrawer(),
+        )),
+        title: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const Text('My Money Manager',
+            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800,
+              color: kPrimary, fontFamily: 'Outfit')),
           if (sp.isReadOnly)
             Container(
-              margin: const EdgeInsets.only(right: 8),
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
               decoration: BoxDecoration(
-                color: kWarn.withValues(alpha: 0.2),
-                borderRadius: BorderRadius.circular(20),
+                color: kWarn.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(8),
               ),
-              child: const Text('Read-only', style: TextStyle(color: kWarn, fontSize: 12)),
+              child: const Text('Read-only', style: TextStyle(color: kWarn, fontSize: 9, fontWeight: FontWeight.w600)),
             ),
-          IconButton(
-            icon: const Icon(Icons.swap_horiz_rounded),
-            tooltip: 'Switch workspace',
-            onPressed: () => _showWorkspaceSheet(context, sp),
-          ),
+        ]),
+        actions: [
           GestureDetector(
             onTap: () => _showProfileMenu(context, sp),
             child: Padding(
               padding: const EdgeInsets.only(right: 16),
               child: CircleAvatar(
                 radius: 16,
-                backgroundColor: kAccent,
+                backgroundColor: kPrimary,
                 child: Text(
                   (sp.myDisplayName ?? '?')[0].toUpperCase(),
                   style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
@@ -76,22 +85,22 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       body: Column(
         children: [
+          const Divider(height: 1, color: Color(0xFFE5E7EB)),
           Expanded(
             child: IndexedStack(
               index: _tab,
-              children: const [MonthTab(), CardsTab(), LbTab(), DefaultsTab()],
+              children: const [MonthTab(), CardsTab(), LbTab(), DefaultsTab(), VaultTab()],
             ),
           ),
           Container(
             decoration: const BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
               boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 12, offset: Offset(0, -2))],
             ),
             child: SafeArea(
               top: false,
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceAround,
                   children: List.generate(_tabs.length, (i) => _NavItem(
@@ -139,24 +148,111 @@ class _NavItem extends StatelessWidget {
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeInOut,
+        padding: selected
+            ? const EdgeInsets.symmetric(horizontal: 16, vertical: 7)
+            : const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
         decoration: BoxDecoration(
-          color: selected ? kPrimary.withValues(alpha: 0.1) : Colors.transparent,
-          borderRadius: BorderRadius.circular(12),
+          color: selected ? kPrimary.withValues(alpha: 0.12) : Colors.transparent,
+          borderRadius: BorderRadius.circular(20),
         ),
-        child: Column(children: [
-          Icon(icon, color: selected ? kPrimary : kTextLight, size: 22),
-          const SizedBox(height: 2),
-          Text(label, style: TextStyle(
-            fontFamily: 'Outfit', fontSize: 10,
-            color: selected ? kPrimary : kTextLight,
-            fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
-          )),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          Icon(icon, color: selected ? kPrimary : kTextLight, size: 20),
+          if (selected) ...[
+            const SizedBox(width: 6),
+            Text(label, style: const TextStyle(
+              fontFamily: 'Outfit', fontSize: 11,
+              color: kPrimary, fontWeight: FontWeight.w700,
+            )),
+          ],
         ]),
       ),
     );
   }
+}
+
+class _AppDrawer extends StatelessWidget {
+  final StateProvider sp;
+  const _AppDrawer({required this.sp});
+  @override
+  Widget build(BuildContext context) {
+    final name = sp.myDisplayName ?? '?';
+    final email = sp.myEmail ?? '';
+    return Drawer(
+      child: Column(children: [
+        // Header
+        Container(
+          width: double.infinity,
+          padding: EdgeInsets.only(
+            top: MediaQuery.of(context).padding.top + 20,
+            left: 20, right: 20, bottom: 20,
+          ),
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [kPrimary, Color(0xFF7C3AED)],
+              begin: Alignment.topLeft, end: Alignment.bottomRight,
+            ),
+          ),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            CircleAvatar(radius: 28, backgroundColor: Colors.white.withValues(alpha: 0.2),
+              child: Text(name[0].toUpperCase(),
+                style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: Colors.white))),
+            const SizedBox(height: 10),
+            Text(name, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: Colors.white)),
+            Text(email, style: TextStyle(fontSize: 12, color: Colors.white.withValues(alpha: 0.7))),
+          ]),
+        ),
+        // Menu items
+        Expanded(child: ListView(padding: const EdgeInsets.symmetric(vertical: 8), children: [
+          _DrawerItem(icon: Icons.person_outline_rounded, label: 'Profile',
+            onTap: () { Navigator.pop(context); _showProfile(context); }),
+          _DrawerItem(icon: Icons.swap_horiz_rounded, label: 'Switch Workspace',
+            onTap: () { Navigator.pop(context); _showWorkspace(context); }),
+          _DrawerItem(icon: Icons.people_outline_rounded, label: 'People & Access',
+            onTap: () { Navigator.pop(context); Navigator.pushNamed(context, '/share-access'); }),
+          _DrawerItem(icon: Icons.notifications_none_rounded, label: 'Alerts'),
+          _DrawerItem(icon: Icons.info_outline_rounded, label: 'About'),
+        ])),
+        // Logout
+        const Divider(height: 1),
+        ListTile(
+          leading: const Icon(Icons.logout_rounded, color: kDanger),
+          title: const Text('Logout', style: TextStyle(color: kDanger, fontWeight: FontWeight.w600)),
+          onTap: () async {
+            Navigator.pop(context);
+            await FirebaseService.signOut();
+          },
+        ),
+        SizedBox(height: MediaQuery.of(context).padding.bottom),
+      ]),
+    );
+  }
+
+  void _showProfile(BuildContext context) {
+    showModalBottomSheet(context: context,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (_) => _ProfileSheet(sp: sp));
+  }
+
+  void _showWorkspace(BuildContext context) {
+    showModalBottomSheet(context: context,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (_) => _WorkspaceSheet(sp: sp));
+  }
+}
+
+class _DrawerItem extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final VoidCallback? onTap;
+  const _DrawerItem({required this.icon, required this.label, this.onTap});
+  @override
+  Widget build(BuildContext context) => ListTile(
+    leading: Icon(icon, color: kPrimary, size: 22),
+    title: Text(label, style: const TextStyle(fontFamily: 'Outfit', fontSize: 14, fontWeight: FontWeight.w500)),
+    onTap: onTap ?? () => Navigator.pop(context),
+  );
 }
 
 class _WorkspaceSheet extends StatelessWidget {

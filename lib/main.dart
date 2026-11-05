@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import 'firebase_options.dart';
 import 'services/state_provider.dart';
 import 'services/firebase_service.dart';
+import 'services/vault_provider.dart';
 import 'screens/login_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/share_access_screen.dart';
@@ -21,8 +22,11 @@ void main() async {
     debugPrint('Firebase init error: $e');
   }
   runApp(
-    ChangeNotifierProvider(
-      create: (_) => StateProvider(),
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => StateProvider()),
+        ChangeNotifierProvider(create: (_) => VaultProvider()),
+      ],
       child: const MmmApp(),
     ),
   );
@@ -85,6 +89,7 @@ class _AuthGateState extends State<_AuthGate> {
           await FirebaseService.saveProfile(user.uid, user.email ?? '', user.displayName ?? '');
           await sp.loadSharedWorkspaces();
           if (mounted) sp.switchWorkspace(user.uid);
+          if (mounted) context.read<VaultProvider>().init(user.uid);
         } else {
           if (mounted) sp.clearWorkspace();
         }
