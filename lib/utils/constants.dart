@@ -63,3 +63,8 @@ String genId() {
   final rnd = List.generate(6, (_) => _genIdRng.nextInt(36).toRadixString(36)).join();
   return '$ts$rnd';
 }
+
+const kShareBranding =
+    '\n\n— Shared from MY LS · Make Your Life Simple\n   Developed by Tanmay';
+
+String withBranding(String text) => '$text$kShareBranding';

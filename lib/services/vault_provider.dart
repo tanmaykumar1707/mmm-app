@@ -143,6 +143,20 @@ class VaultProvider extends ChangeNotifier {
     _cancelListeners();
     _activePersonId = null;
 
+    // Detect remote vault wipe (another device deleted the vault)
+    _subs.add(_db.child('users/$uid/vault/meta').onValue.listen((e) {
+      if (!e.snapshot.exists && _status == VaultStatus.ready) {
+        unawaited(_enc.clearKeyMaterial(uid));
+        _persons = [];
+        _categories = [];
+        _folders = [];
+        _pinned = [];
+        _status = VaultStatus.needsSetup;
+        notifyListeners();
+        Future.microtask(_cancelListeners);
+      }
+    }, onError: (e) => debugPrint('Vault meta listener error: $e')));
+
     _subs.add(_db.child('users/$uid/vault/persons').onValue.listen((e) {
       if (!e.snapshot.exists) {
         _persons = [];

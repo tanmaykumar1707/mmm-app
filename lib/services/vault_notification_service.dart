@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:timezone/data/latest.dart' as tz;
 import 'package:timezone/timezone.dart' as tz;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -20,7 +21,7 @@ class VaultNotificationService {
     if (_initialized) return;
     tz.initializeTimeZones();
     try {
-      final localTz = DateTime.now().timeZoneName;
+      final localTz = await FlutterTimezone.getLocalTimezone();
       tz.setLocalLocation(tz.getLocation(localTz));
     } catch (_) {
       // fallback to UTC
@@ -44,7 +45,10 @@ class VaultNotificationService {
       return await ios?.requestPermissions(alert: true, badge: true, sound: true) ?? false;
     } else if (Platform.isAndroid) {
       final android = _plugin.resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>();
-      return await android?.requestNotificationsPermission() ?? false;
+      await android?.requestNotificationsPermission();
+      // Android 12+ requires explicit user grant for exact alarms
+      await android?.requestExactAlarmsPermission();
+      return true;
     }
     return false;
   }

@@ -21,6 +21,7 @@ class _VaultTabState extends State<VaultTab> {
   final _searchCtrl = TextEditingController();
   final Set<String> _selectedCats = {};
   bool _catSelectMode = false;
+  final _shareKey = GlobalKey();
 
   @override
   void dispose() {
@@ -53,7 +54,9 @@ class _VaultTabState extends State<VaultTab> {
       final fieldLines = cat.fields.map((f) => '  ${f.label}: ${f.value ?? ''}').join('\n');
       return '--- ${cat.name} ---\n$fieldLines';
     }).join('\n\n');
-    Share.share(lines.isEmpty ? '(no fields)' : lines);
+    final box = _shareKey.currentContext?.findRenderObject() as RenderBox?;
+    final origin = box == null ? null : box.localToGlobal(Offset.zero) & box.size;
+    Share.share(withBranding(lines.isEmpty ? '(no fields)' : lines), sharePositionOrigin: origin);
     _cancelCatSelect();
   }
 
@@ -156,6 +159,7 @@ class _VaultTabState extends State<VaultTab> {
               ),
               const SizedBox(width: 6),
               ElevatedButton.icon(
+                key: _shareKey,
                 onPressed: () => _shareCats(vp),
                 icon: const Icon(Icons.ios_share_rounded, size: 18),
                 label: const Text('Share', style: TextStyle(fontSize: 14)),

@@ -17,6 +17,7 @@ class _VaultBankDetailScreenState extends State<VaultBankDetailScreen> {
   String? _expandedId;
   final Set<String> _selectedBankIds = {};
   bool _bankSelectMode = false;
+  final _shareBanksKey = GlobalKey();
 
   static const _bankColors = [
     Color(0xFF1D4ED8), Color(0xFF15803D), Color(0xFFB45309),
@@ -38,7 +39,9 @@ class _VaultBankDetailScreenState extends State<VaultBankDetailScreen> {
       final lines = inst.fields.map((f) => '  ${f.label}: ${f.value ?? ''}').join('\n');
       return '--- ${inst.bankName} ---\n$lines';
     }).join('\n\n');
-    Share.share(text.isEmpty ? '(no data)' : text);
+    final box = _shareBanksKey.currentContext?.findRenderObject() as RenderBox?;
+    final origin = box == null ? null : box.localToGlobal(Offset.zero) & box.size;
+    Share.share(withBranding(text.isEmpty ? '(no data)' : text), sharePositionOrigin: origin);
     _cancelBankSelect();
   }
 
@@ -108,6 +111,7 @@ class _VaultBankDetailScreenState extends State<VaultBankDetailScreen> {
                 ),
                 const SizedBox(width: 6),
                 ElevatedButton.icon(
+                  key: _shareBanksKey,
                   onPressed: () => _shareBanks(cat),
                   icon: const Icon(Icons.ios_share_rounded, size: 18),
                   label: const Text('Share', style: TextStyle(fontSize: 13)),
@@ -252,6 +256,8 @@ class _BankInstanceCardState extends State<_BankInstanceCard> {
   bool _fieldSelectMode = false;
   bool _showNote = false;
   late TextEditingController _noteCtrl;
+  final _shareFieldsKey = GlobalKey();
+  final _shareCardsKey = GlobalKey();
 
   @override
   void initState() {
@@ -277,7 +283,9 @@ class _BankInstanceCardState extends State<_BankInstanceCard> {
         .where((f) => _selectedFields.contains(f.id))
         .map((f) => '${f.label}: ${f.value ?? ''}')
         .join('\n');
-    Share.share('--- ${widget.instance.bankName} ---\n$lines');
+    final box = _shareFieldsKey.currentContext?.findRenderObject() as RenderBox?;
+    final origin = box == null ? null : box.localToGlobal(Offset.zero) & box.size;
+    Share.share(withBranding('--- ${widget.instance.bankName} ---\n$lines'), sharePositionOrigin: origin);
     _cancelFieldSelect();
   }
 
@@ -288,7 +296,9 @@ class _BankInstanceCardState extends State<_BankInstanceCard> {
       final type    = card.cardType.name.toUpperCase();
       return '$type Card\n  Card No: ${cardNum?.value ?? '—'}\n  Expiry: ${expiry?.value ?? '—'}';
     }).join('\n\n');
-    Share.share(lines.isEmpty ? '(no cards)' : '--- ${widget.instance.bankName} Cards ---\n$lines');
+    final box = _shareCardsKey.currentContext?.findRenderObject() as RenderBox?;
+    final origin = box == null ? null : box.localToGlobal(Offset.zero) & box.size;
+    Share.share(withBranding(lines.isEmpty ? '(no cards)' : '--- ${widget.instance.bankName} Cards ---\n$lines'), sharePositionOrigin: origin);
   }
 
   Future<void> _addField(BuildContext context) async {
@@ -563,6 +573,7 @@ class _BankInstanceCardState extends State<_BankInstanceCard> {
                     // Share cards
                     if (instance.cards.isNotEmpty)
                       GestureDetector(
+                        key: _shareCardsKey,
                         onTap: _shareCards,
                         child: const Padding(
                           padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -694,6 +705,7 @@ class _BankInstanceCardState extends State<_BankInstanceCard> {
                       label: const Text('Cancel', style: TextStyle(color: Colors.white54, fontSize: 12)),
                     ),
                     ElevatedButton.icon(
+                      key: _shareFieldsKey,
                       onPressed: _shareFields,
                       icon: const Icon(Icons.ios_share_rounded, size: 16),
                       label: const Text('Share', style: TextStyle(fontSize: 12)),
@@ -931,7 +943,9 @@ class _CardBlock extends StatelessWidget {
               GestureDetector(
                 onTap: () {
                   final lines = card.fields.map((f) => '${f.label}: ${f.value ?? ''}').join('\n');
-                  Share.share('${_cardLabel(card.cardType)} Card\n$lines');
+                  final box = context.findRenderObject() as RenderBox?;
+                  final origin = box == null ? null : box.localToGlobal(Offset.zero) & box.size;
+                  Share.share(withBranding('${_cardLabel(card.cardType)} Card\n$lines'), sharePositionOrigin: origin);
                 },
                 child: const Padding(
                   padding: EdgeInsets.only(right: 12),

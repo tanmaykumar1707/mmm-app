@@ -20,6 +20,8 @@ class _VaultCategoryDetailScreenState extends State<VaultCategoryDetailScreen> {
   bool _showNote = false;
   late VaultCategory _cat;
   final _noteCtrl = TextEditingController();
+  final _shareCatKey = GlobalKey();
+  final _shareSelKey = GlobalKey();
 
   @override
   void initState() {
@@ -61,7 +63,7 @@ class _VaultCategoryDetailScreenState extends State<VaultCategoryDetailScreen> {
         .where((f) => _selected.contains(f.id))
         .map((f) => '${f.label}: ${f.value ?? ''}')
         .join('\n');
-    _share(lines);
+    _share(lines, _shareSelKey);
     _cancelSelect();
   }
 
@@ -69,11 +71,13 @@ class _VaultCategoryDetailScreenState extends State<VaultCategoryDetailScreen> {
     final lines = _cat.fields
         .map((f) => '${f.label}: ${f.value ?? ''}')
         .join('\n');
-    _share('--- ${_cat.name} ---\n$lines');
+    _share('--- ${_cat.name} ---\n$lines', _shareCatKey);
   }
 
-  void _share(String text) {
-    Share.share(text);
+  void _share(String text, GlobalKey key) {
+    final box = key.currentContext?.findRenderObject() as RenderBox?;
+    final origin = box == null ? null : box.localToGlobal(Offset.zero) & box.size;
+    Share.share(withBranding(text), sharePositionOrigin: origin);
   }
 
   void _copyField(VaultField f) {
@@ -110,6 +114,7 @@ class _VaultCategoryDetailScreenState extends State<VaultCategoryDetailScreen> {
               // Category share button
               Row(mainAxisAlignment: MainAxisAlignment.end, children: [
                 TextButton.icon(
+                  key: _shareCatKey,
                   onPressed: _shareCategory,
                   icon: const Icon(Icons.ios_share_rounded, size: 22),
                   label: const Text('Share'),
@@ -211,6 +216,7 @@ class _VaultCategoryDetailScreenState extends State<VaultCategoryDetailScreen> {
                 ),
                 const SizedBox(width: 6),
                 ElevatedButton.icon(
+                  key: _shareSelKey,
                   onPressed: _shareSelected,
                   icon: const Icon(Icons.ios_share_rounded, size: 20),
                   label: const Text('Share', style: TextStyle(fontSize: 15)),

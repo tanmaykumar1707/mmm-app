@@ -1179,7 +1179,7 @@ class _CardsShareSheetState extends State<_CardsShareSheet> {
             final origin = box == null ? null
                 : box.localToGlobal(Offset.zero) & box.size;
             Navigator.pop(context);
-            Share.share(widget.text, sharePositionOrigin: origin);
+            Share.share(withBranding(widget.text), sharePositionOrigin: origin);
           },
         )),
       ]),
