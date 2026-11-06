@@ -60,7 +60,8 @@ class VaultNotificationService {
     final scheduledIds = <int>[];
     for (final alert in field.alerts) {
       final trigger = alert.triggerDate(expiryDate);
-      if (trigger == null) continue;
+      // Skip if the FULL trigger time (not just midnight) has already passed
+      if (trigger.isBefore(DateTime.now())) continue;
 
       final notifId = _stableId(field.id, alert.id);
       try {

@@ -745,6 +745,11 @@ class _AlertRowState extends State<_AlertRow> {
             final picked = await showTimePicker(
               context: context,
               initialTime: TimeOfDay(hour: widget.alert.hour, minute: widget.alert.minute),
+              // Fix Android BoxConstraints error when switching to keyboard input mode
+              builder: (context, child) => MediaQuery(
+                data: MediaQuery.of(context).copyWith(textScaler: TextScaler.noScaling),
+                child: child!,
+              ),
             );
             if (picked != null) {
               widget.onChanged(VaultAlert(id: widget.alert.id, daysBefore: widget.alert.daysBefore, hour: picked.hour, minute: picked.minute));
@@ -804,15 +809,18 @@ class _AlertPreview extends StatelessWidget {
     if (expiry == null) return const SizedBox.shrink();
     final rows = field.alerts.map((a) {
       final trigger = a.triggerDate(expiry);
-      if (trigger == null) return null;
+      final isPast = trigger.isBefore(DateTime.now());
       return Padding(
         padding: const EdgeInsets.only(top: 3),
         child: Row(children: [
-          const Icon(Icons.notifications_active_rounded, size: 13, color: Colors.orange),
+          Icon(isPast ? Icons.notifications_off_outlined : Icons.notifications_active_rounded,
+            size: 13, color: isPast ? kTextLight : Colors.orange),
           const SizedBox(width: 5),
           Expanded(child: Text(
-            'You will be alerted on ${_fmtAlertTime(trigger)}',
-            style: const TextStyle(fontSize: 11, color: kTextMid, fontWeight: FontWeight.w500),
+            isPast
+              ? 'Alert passed: ${_fmtAlertTime(trigger)}'
+              : 'You will be alerted on ${_fmtAlertTime(trigger)}',
+            style: TextStyle(fontSize: 11, color: isPast ? kTextLight : kTextMid, fontWeight: FontWeight.w500),
           )),
         ]),
       );

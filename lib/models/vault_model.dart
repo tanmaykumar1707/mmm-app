@@ -28,11 +28,14 @@ class VaultAlert {
     return '$h:$m';
   }
 
-  DateTime? triggerDate(DateTime expiryDate) {
+  // Always returns the computed trigger datetime — callers check past/future themselves.
+  // Past check must use full HH:MM time, not midnight, to avoid wrongly nulling same-day alerts.
+  DateTime triggerDate(DateTime expiryDate) {
     final d = expiryDate.subtract(Duration(days: daysBefore));
-    if (d.isBefore(DateTime.now())) return null;
     return DateTime(d.year, d.month, d.day, hour, minute);
   }
+
+  bool get isFuture => triggerDate(DateTime.now()).isAfter(DateTime.now());
 }
 
 class VaultField {

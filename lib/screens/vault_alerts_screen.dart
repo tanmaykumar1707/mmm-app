@@ -141,25 +141,19 @@ class VaultAlertsScreen extends StatelessWidget {
                         const SizedBox(height: 6),
                         ...item.field.alerts.map((a) {
                           final trigger = a.triggerDate(expiryDate);
-                          if (trigger == null) {
-                            return Padding(
-                              padding: const EdgeInsets.only(top: 2),
-                              child: Row(children: [
-                                const Icon(Icons.alarm_off_rounded, size: 13, color: kTextLight),
-                                const SizedBox(width: 4),
-                                Text('${a.daysBefore}d before — alert date already passed',
-                                  style: const TextStyle(fontSize: 12, color: kTextLight)),
-                              ]),
-                            );
-                          }
+                          final isPast = trigger.isBefore(DateTime.now());
                           return Padding(
                             padding: const EdgeInsets.only(top: 3),
                             child: Row(children: [
-                              const Icon(Icons.notifications_active_rounded, size: 14, color: Colors.orange),
+                              Icon(isPast ? Icons.notifications_off_outlined : Icons.notifications_active_rounded,
+                                size: 14, color: isPast ? kTextLight : Colors.orange),
                               const SizedBox(width: 5),
                               Expanded(child: Text(
-                                'You will be alerted on ${_fmtAlertTime(trigger)}',
-                                style: const TextStyle(fontSize: 12, color: kTextMid, fontWeight: FontWeight.w500),
+                                isPast
+                                  ? 'Alert passed: ${_fmtAlertTime(trigger)}'
+                                  : 'You will be alerted on ${_fmtAlertTime(trigger)}',
+                                style: TextStyle(fontSize: 12,
+                                  color: isPast ? kTextLight : kTextMid, fontWeight: FontWeight.w500),
                               )),
                             ]),
                           );
