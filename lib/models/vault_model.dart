@@ -4,13 +4,44 @@ enum VaultFieldType { text, number, date, hidden }
 
 enum VaultCardType { debit, credit, other }
 
+// ── Alert config (time-of-day + days before expiry) ────────────────────────
+class VaultAlert {
+  final String id;
+  final int daysBefore;
+  final int hour;   // 0-23
+  final int minute; // 0-59
+
+  const VaultAlert({required this.id, required this.daysBefore, this.hour = 9, this.minute = 0});
+
+  factory VaultAlert.fromMap(String id, Map m) => VaultAlert(
+    id: id,
+    daysBefore: (m['daysBefore'] ?? 30) as int,
+    hour: (m['hour'] ?? 9) as int,
+    minute: (m['minute'] ?? 0) as int,
+  );
+
+  Map<String, dynamic> toMap() => {'daysBefore': daysBefore, 'hour': hour, 'minute': minute};
+
+  String get timeLabel {
+    final h = hour.toString().padLeft(2, '0');
+    final m = minute.toString().padLeft(2, '0');
+    return '$h:$m';
+  }
+
+  DateTime? triggerDate(DateTime expiryDate) {
+    final d = expiryDate.subtract(Duration(days: daysBefore));
+    if (d.isBefore(DateTime.now())) return null;
+    return DateTime(d.year, d.month, d.day, hour, minute);
+  }
+}
+
 class VaultField {
   String id;
   String label;
   VaultFieldType type;
   String? valueEncrypted;
   bool isExpiryField;
-  int alertDays; // 30, 60, 90
+  List<VaultAlert> alerts;
   bool isPinned;
   int sortOrder;
 
@@ -23,7 +54,7 @@ class VaultField {
     this.type = VaultFieldType.text,
     this.valueEncrypted,
     this.isExpiryField = false,
-    this.alertDays = 30,
+    this.alerts = const [],
     this.isPinned = false,
     this.sortOrder = 0,
     this.value,
@@ -38,7 +69,13 @@ class VaultField {
         ),
         valueEncrypted: m['valueEncrypted'],
         isExpiryField: m['isExpiryField'] == true,
-        alertDays: (m['alertDays'] ?? 30) as int,
+        alerts: m['alerts'] == null
+            ? (m['isExpiryField'] == true
+                ? [VaultAlert(id: genId(), daysBefore: (m['alertDays'] ?? 30) as int)]
+                : [])
+            : (m['alerts'] as Map).entries
+                .map((e) => VaultAlert.fromMap(e.key as String, Map.from(e.value as Map)))
+                .toList(),
         isPinned: m['isPinned'] == true,
         sortOrder: (m['sortOrder'] ?? 0) as int,
       );
@@ -48,7 +85,7 @@ class VaultField {
         'type': type.name,
         if (valueEncrypted != null) 'valueEncrypted': valueEncrypted,
         'isExpiryField': isExpiryField,
-        'alertDays': alertDays,
+        if (alerts.isNotEmpty) 'alerts': {for (final a in alerts) a.id: a.toMap()},
         'isPinned': isPinned,
         'sortOrder': sortOrder,
       };
@@ -58,7 +95,7 @@ class VaultField {
     VaultFieldType? type,
     String? valueEncrypted,
     bool? isExpiryField,
-    int? alertDays,
+    List<VaultAlert>? alerts,
     bool? isPinned,
     int? sortOrder,
     String? value,
@@ -69,7 +106,7 @@ class VaultField {
         type: type ?? this.type,
         valueEncrypted: valueEncrypted ?? this.valueEncrypted,
         isExpiryField: isExpiryField ?? this.isExpiryField,
-        alertDays: alertDays ?? this.alertDays,
+        alerts: alerts ?? this.alerts,
         isPinned: isPinned ?? this.isPinned,
         sortOrder: sortOrder ?? this.sortOrder,
         value: value ?? this.value,
@@ -138,6 +175,8 @@ class VaultBankInstance {
   String colorHex;
   List<VaultField> fields;
   List<VaultBankCard> cards;
+  String? noteEncrypted;
+  String? note; // runtime-only, never persisted directly
 
   VaultBankInstance({
     required this.id,
@@ -145,12 +184,15 @@ class VaultBankInstance {
     this.colorHex = '#4F46E5',
     this.fields = const [],
     this.cards = const [],
+    this.noteEncrypted,
+    this.note,
   });
 
   factory VaultBankInstance.fromMap(String id, Map m) => VaultBankInstance(
         id: id,
         bankName: m['bankName'] ?? '',
         colorHex: m['colorHex'] ?? '#4F46E5',
+        noteEncrypted: m['noteEncrypted'],
         fields: m['fields'] == null
             ? []
             : (m['fields'] as Map).entries
@@ -167,6 +209,7 @@ class VaultBankInstance {
   Map<String, dynamic> toMap() => {
         'bankName': bankName,
         'colorHex': colorHex,
+        if (noteEncrypted != null) 'noteEncrypted': noteEncrypted,
         'fields': {for (final f in fields) f.id: f.toMap()},
         if (cards.isNotEmpty) 'cards': {for (final c in cards) c.id: c.toMap()},
       };
@@ -346,8 +389,15 @@ class VaultPinnedRef {
 // ── Default category templates ─────────────────────────────────────────────
 List<VaultCategory> buildDefaultCategories(String personId) {
   int _ord = 0;
-  VaultField f(String label, {VaultFieldType type = VaultFieldType.text, bool hidden = false, bool expiry = false, int alertDays = 30}) =>
-      VaultField(id: genId(), label: label, type: hidden ? VaultFieldType.hidden : type, isExpiryField: expiry, alertDays: alertDays, sortOrder: _ord++);
+  VaultField f(String label, {VaultFieldType type = VaultFieldType.text, bool hidden = false, bool expiry = false, int alertDays = 30}) {
+    final id = genId();
+    return VaultField(
+      id: id, label: label, type: hidden ? VaultFieldType.hidden : type,
+      isExpiryField: expiry,
+      alerts: expiry ? [VaultAlert(id: genId(), daysBefore: alertDays)] : [],
+      sortOrder: _ord++,
+    );
+  }
 
   return [
     // Aadhaar

@@ -4,6 +4,7 @@ import 'package:firebase_database/firebase_database.dart';
 import '../models/vault_model.dart';
 import '../utils/constants.dart';
 import 'vault_encryption.dart';
+import 'vault_notification_service.dart';
 
 enum VaultStatus { loading, needsSetup, needsToken, ready }
 
@@ -193,6 +194,7 @@ class VaultProvider extends ChangeNotifier {
 
     _status = VaultStatus.ready;
     notifyListeners();
+    unawaited(VaultNotificationService.instance.rescheduleAll(_categories));
   }
 
   void _decryptAllFields() {
@@ -209,9 +211,16 @@ class VaultProvider extends ChangeNotifier {
             field.value = _enc.decryptOptional(field.valueEncrypted);
           }
         }
+        inst.note = _enc.decryptOptional(inst.noteEncrypted);
       }
       cat.note = _enc.decryptOptional(cat.noteEncrypted);
     }
+  }
+
+  Future<void> saveBankInstanceNote(String catId, String instanceId, String note) async {
+    final uid = _uid!;
+    final enc = _enc.encryptOptional(note);
+    await _db.child('users/$uid/vault/categories/$catId/instances/$instanceId/noteEncrypted').set(enc);
   }
 
   void _cancelListeners() {
@@ -286,10 +295,27 @@ class VaultProvider extends ChangeNotifier {
     final uid = _uid!;
     final toSave = field.copyWith(valueEncrypted: _enc.encryptOptional(field.value));
     await _db.child('users/$uid/vault/categories/$catId/fields/${field.id}').set(toSave.toMap());
+    final cat = _categories.where((c) => c.id == catId).firstOrNull;
+    if (cat != null) {
+      unawaited(VaultNotificationService.instance.scheduleFieldAlerts(field, cat.name));
+    }
   }
 
   Future<void> deleteField(String catId, String fieldId) async {
     await _db.child('users/$_uid/vault/categories/$catId/fields/$fieldId').remove();
+    unawaited(VaultNotificationService.instance.cancelFieldAlerts(fieldId));
+  }
+
+  Future<void> saveFieldAlerts(String catId, String fieldId, List<VaultAlert> alerts) async {
+    final uid = _uid!;
+    final alertsMap = alerts.isEmpty ? null : {for (final a in alerts) a.id: a.toMap()};
+    await _db.child('users/$uid/vault/categories/$catId/fields/$fieldId/alerts').set(alertsMap);
+    final cat = _categories.where((c) => c.id == catId).firstOrNull;
+    final field = cat?.fields.where((f) => f.id == fieldId).firstOrNull;
+    if (field != null && cat != null) {
+      unawaited(VaultNotificationService.instance.scheduleFieldAlerts(
+        field.copyWith(alerts: alerts), cat.name));
+    }
   }
 
   // ── Bank instance operations ───────────────────────────────────────────────
@@ -322,6 +348,10 @@ class VaultProvider extends ChangeNotifier {
   }
 
   // ── Bank card operations ───────────────────────────────────────────────────
+
+  Future<void> deleteBankField(String catId, String instanceId, String fieldId) async {
+    await _db.child('users/$_uid/vault/categories/$catId/instances/$instanceId/fields/$fieldId').remove();
+  }
 
   Future<void> addBankCard(String catId, String instanceId, VaultBankCard card) async {
     final uid = _uid!;

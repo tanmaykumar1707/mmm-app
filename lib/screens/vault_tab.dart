@@ -8,6 +8,7 @@ import 'vault_setup_screen.dart';
 import 'vault_category_detail.dart';
 import 'vault_bank_detail.dart';
 import 'vault_create_category.dart';
+import 'vault_alerts_screen.dart';
 
 class VaultTab extends StatefulWidget {
   const VaultTab({super.key});
@@ -87,8 +88,9 @@ class _VaultTabState extends State<VaultTab> {
             return false;
           }).toList();
 
-    final defaults = filtered.where((c) => c.isDefault).toList();
-    final custom = filtered.where((c) => !c.isDefault).toList();
+    // Exclude categories that are inside a folder from the main lists
+    final defaults = filtered.where((c) => c.isDefault && c.folderId == null).toList();
+    final custom = filtered.where((c) => !c.isDefault && c.folderId == null).toList();
     final pinned = vp.pinnedFields;
 
     return Stack(children: [
@@ -195,6 +197,14 @@ class _VaultTabState extends State<VaultTab> {
               ]),
             ),
             const SizedBox(width: 6),
+            IconButton(
+              icon: const Icon(Icons.notifications_outlined, color: Colors.white, size: 22),
+              onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const VaultAlertsScreen())),
+              tooltip: 'Expiry/Reminder Alerts',
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(),
+            ),
+            const SizedBox(width: 4),
             PopupMenuButton<String>(
               icon: const Icon(Icons.more_vert_rounded, color: Colors.white, size: 20),
               onSelected: (v) { if (v == 'wipe') _confirmWipeVault(context, vp); },
@@ -245,7 +255,7 @@ class _VaultTabState extends State<VaultTab> {
                 ),
                 const SizedBox(width: 5),
                 Text(p.name, style: TextStyle(
-                  fontSize: 10, fontWeight: FontWeight.w600,
+                  fontSize: 13, fontWeight: FontWeight.w600,
                   color: vp.activePersonId == p.id ? Colors.white : kTextMid)),
               ]),
             ),
@@ -373,20 +383,20 @@ class _VaultTabState extends State<VaultTab> {
   Widget _sectionHead(String title, {String? hint, VoidCallback? onAdd}) => Padding(
     padding: const EdgeInsets.fromLTRB(0, 10, 0, 8),
     child: Row(children: [
-      Text(title, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700,
+      Text(title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700,
         letterSpacing: 0.5, color: kTextLight)),
       if (hint != null) ...[
         const SizedBox(width: 6),
-        Text(hint, style: const TextStyle(fontSize: 9, color: kTextLight)),
+        Text(hint, style: const TextStyle(fontSize: 11, color: kTextLight)),
       ],
       const Spacer(),
       if (onAdd != null)
         GestureDetector(
           onTap: onAdd,
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
             decoration: BoxDecoration(color: kPrimary.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(20)),
-            child: const Text('＋ Add', style: TextStyle(fontSize: 9, fontWeight: FontWeight.w600, color: kPrimary)),
+            child: const Text('＋ Add', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: kPrimary)),
           ),
         ),
     ]),
@@ -638,8 +648,8 @@ class _CatCard extends StatelessWidget {
                     ]),
                   )),
                 ),
-                childWhenDragging: const Icon(Icons.drag_indicator_rounded, size: 15, color: kPrimary),
-                child: const Icon(Icons.drag_indicator_rounded, size: 15, color: kTextLight),
+                childWhenDragging: const Icon(Icons.drag_indicator_rounded, size: 24, color: kPrimary),
+                child: const Icon(Icons.drag_indicator_rounded, size: 24, color: kTextLight),
               )),
         ]),
       ),
@@ -725,7 +735,7 @@ class _BankCard extends StatelessWidget {
 }
 
 // ── Folder card ───────────────────────────────────────────────────────────────
-class _FolderCard extends StatelessWidget {
+class _FolderCard extends StatefulWidget {
   final VaultFolder folder;
   final List<VaultCategory> allCats;
   final VaultProvider vp;
@@ -733,10 +743,44 @@ class _FolderCard extends StatelessWidget {
   const _FolderCard({required this.folder, required this.allCats, required this.vp, required this.onTap});
 
   @override
+  State<_FolderCard> createState() => _FolderCardState();
+}
+
+class _FolderCardState extends State<_FolderCard> {
+  bool _expanded = false;
+
+  Future<void> _confirmDelete(BuildContext context) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('Delete folder "${widget.folder.name}"?'),
+        content: const Text('Categories inside will be moved back to the main list.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: kDanger, foregroundColor: Colors.white),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (ok == true) await widget.vp.deleteFolder(widget.folder.id);
+  }
+
+  void _openCat(BuildContext context, VaultCategory cat) {
+    if (cat.isMultiInstance) {
+      Navigator.push(context, MaterialPageRoute(builder: (_) => VaultBankDetailScreen(cat: cat)));
+    } else {
+      Navigator.push(context, MaterialPageRoute(builder: (_) => VaultCategoryDetailScreen(cat: cat)));
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final cats = allCats.where((c) => folder.categoryIds.contains(c.id)).toList();
+    final cats = widget.allCats.where((c) => widget.folder.categoryIds.contains(c.id)).toList();
     return DragTarget<VaultCategory>(
-      onAcceptWithDetails: (details) => vp.moveCategoryToFolder(details.data.id, folder.id),
+      onAcceptWithDetails: (details) => widget.vp.moveCategoryToFolder(details.data.id, widget.folder.id),
       builder: (ctx, candidates, rejected) => AnimatedContainer(
         duration: const Duration(milliseconds: 150),
         margin: const EdgeInsets.only(bottom: 8),
@@ -750,23 +794,72 @@ class _FolderCard extends StatelessWidget {
           ),
         ),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Row(children: [
-            const Text('📁', style: TextStyle(fontSize: 16)),
-            const SizedBox(width: 8),
-            Expanded(child: Text(folder.name, style: const TextStyle(fontFamily: 'Outfit', fontSize: 12, fontWeight: FontWeight.w700))),
-            Text('${cats.length} categories', style: const TextStyle(fontSize: 9, color: kTextLight)),
-          ]),
-          if (cats.isNotEmpty) ...[
+          // Folder header — tap to expand/collapse
+          GestureDetector(
+            onTap: () => setState(() => _expanded = !_expanded),
+            child: Row(children: [
+              const Text('📁', style: TextStyle(fontSize: 18)),
+              const SizedBox(width: 8),
+              Expanded(child: Text(widget.folder.name,
+                style: const TextStyle(fontFamily: 'Outfit', fontSize: 15, fontWeight: FontWeight.w700))),
+              Text('${cats.length} categories', style: const TextStyle(fontSize: 12, color: kTextLight)),
+              const SizedBox(width: 4),
+              Icon(_expanded ? Icons.expand_less_rounded : Icons.expand_more_rounded,
+                size: 20, color: kTextLight),
+              const SizedBox(width: 4),
+              GestureDetector(
+                onTap: () => _confirmDelete(context),
+                child: const Icon(Icons.delete_outline_rounded, size: 20, color: kDanger),
+              ),
+            ]),
+          ),
+          // Collapsed: show category chips as preview
+          if (!_expanded && cats.isNotEmpty) ...[
             const SizedBox(height: 8),
-            Wrap(spacing: 5, runSpacing: 4, children: cats.map((c) => Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-              decoration: BoxDecoration(color: kBg, borderRadius: BorderRadius.circular(7), border: Border.all(color: kTextLight.withValues(alpha: 0.2))),
-              child: Text('${c.icon} ${c.name}', style: const TextStyle(fontSize: 9, color: kTextMid, fontWeight: FontWeight.w500)),
+            Wrap(spacing: 5, runSpacing: 4, children: cats.map((c) => GestureDetector(
+              onTap: () => _openCat(context, c),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(color: kBg, borderRadius: BorderRadius.circular(7),
+                  border: Border.all(color: kTextLight.withValues(alpha: 0.2))),
+                child: Text('${c.icon} ${c.name}', style: const TextStyle(fontSize: 12, color: kTextMid, fontWeight: FontWeight.w500)),
+              ),
             )).toList()),
-          ] else
-            Padding(padding: const EdgeInsets.only(top: 6),
-              child: Text(candidates.isNotEmpty ? 'Drop category here' : 'Drag categories here',
-                style: TextStyle(fontSize: 9, color: candidates.isNotEmpty ? kPrimary : kTextLight))),
+          ],
+          // Expanded: show full category list with open arrows
+          if (_expanded) ...[
+            const SizedBox(height: 8),
+            if (cats.isEmpty)
+              Padding(padding: const EdgeInsets.only(top: 4),
+                child: Text(candidates.isNotEmpty ? 'Drop category here' : 'Drag categories here',
+                  style: TextStyle(fontSize: 12, color: candidates.isNotEmpty ? kPrimary : kTextLight)))
+            else
+              ...cats.map((c) => GestureDetector(
+                onTap: () => _openCat(context, c),
+                child: Container(
+                  margin: const EdgeInsets.only(bottom: 6),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: kBg, borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: kTextLight.withValues(alpha: 0.15)),
+                  ),
+                  child: Row(children: [
+                    Text(c.icon, style: const TextStyle(fontSize: 18)),
+                    const SizedBox(width: 10),
+                    Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text(c.name, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: kTextDark)),
+                      Text(c.fieldCount == 0 ? 'No fields' : '${c.fieldCount} fields',
+                        style: const TextStyle(fontSize: 11, color: kTextLight)),
+                    ])),
+                    const Icon(Icons.chevron_right_rounded, size: 20, color: kTextLight),
+                  ]),
+                ),
+              )),
+          ],
+          // Drop target hint when dragging
+          if (candidates.isNotEmpty)
+            Padding(padding: const EdgeInsets.only(top: 8),
+              child: Text('Drop to add to folder', style: TextStyle(fontSize: 12, color: kPrimary, fontWeight: FontWeight.w600))),
         ]),
       ),
     );

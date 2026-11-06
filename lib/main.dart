@@ -6,6 +6,7 @@ import 'firebase_options.dart';
 import 'services/state_provider.dart';
 import 'services/firebase_service.dart';
 import 'services/vault_provider.dart';
+import 'services/vault_notification_service.dart';
 import 'screens/login_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/share_access_screen.dart';
@@ -21,6 +22,8 @@ void main() async {
     _firebaseInitError = e.toString();
     debugPrint('Firebase init error: $e');
   }
+  await VaultNotificationService.instance.init();
+  await VaultNotificationService.instance.requestPermissions();
   runApp(
     MultiProvider(
       providers: [

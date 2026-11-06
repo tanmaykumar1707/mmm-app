@@ -183,7 +183,9 @@ class _VaultCreateCategoryScreenState extends State<VaultCreateCategoryScreen> {
       return VaultField(
         id: genId(), label: d.ctrl.text.trim().isEmpty ? 'Field ${en.key + 1}' : d.ctrl.text.trim(),
         type: d.hidden ? VaultFieldType.hidden : d.type,
-        isExpiryField: d.expiry, alertDays: d.alertDays, sortOrder: en.key,
+        isExpiryField: d.expiry,
+        alerts: d.expiry ? [VaultAlert(id: genId(), daysBefore: d.alertDays)] : [],
+        sortOrder: en.key,
       );
     }).toList();
 
@@ -282,7 +284,7 @@ class _FieldDraftCardState extends State<_FieldDraftCard> {
                 materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
               ),
               const SizedBox(width: 10),
-              const Text('Expiry Alert: ', style: TextStyle(fontSize: 10, color: kTextLight)),
+              const Text('Expiry/Reminder Alert: ', style: TextStyle(fontSize: 10, color: kTextLight)),
               Switch(
                 value: widget.draft.expiry, activeColor: widget.color,
                 onChanged: (v) { setState(() { widget.draft.expiry = v; widget.onChanged(); }); },
