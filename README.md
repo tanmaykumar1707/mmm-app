@@ -64,47 +64,24 @@ Signing & Capabilities → select your Apple Developer Team → re-run.
 
 **Step 1 — Generate signing keystore (one time only, keep this file safe)**
 ```
-keytool -genkey -v -keystore mmm-release.jks -keyAlias mmm -keyalg RSA -keysize 2048 -validity 10000
+keytool -genkeypair -v -keystore "$HOME/mmm-release.jks" -alias mmm -keyalg RSA -keysize 2048 -validity 10000
 ```
-Save `mmm-release.jks` somewhere safe (NOT inside the project folder — do not commit it).
+Keep the keystore and its passwords somewhere safe. Do not put the keystore in the project or commit it.
 
 **Step 2 — Create `android/key.properties`** (gitignored, create manually)
 ```
 storePassword=YOUR_STORE_PASSWORD
 keyPassword=YOUR_KEY_PASSWORD
 keyAlias=mmm
-storeFile=C:/full/path/to/mmm-release.jks
+storeFile=/full/path/to/mmm-release.jks
 ```
+Replace the example path with the actual absolute path to the keystore. `android/key.properties` is gitignored.
 
-**Step 3 — Add signing config to `android/app/build.gradle.kts`**
+**Step 3 — Signing configuration**
 
-At the top, before `android {`:
-```kotlin
-import java.util.Properties
-val keyProps = Properties().apply {
-    rootProject.file("key.properties").takeIf { it.exists() }?.inputStream()?.use { load(it) }
-}
-```
+`android/app/build.gradle.kts` is configured to read `android/key.properties` and use that keystore for release builds. You do not need to edit Gradle for this step.
 
-Inside `android { ... }`:
-```kotlin
-signingConfigs {
-    create("release") {
-        keyAlias     = keyProps["keyAlias"] as String?
-        keyPassword  = keyProps["keyPassword"] as String?
-        storeFile    = keyProps["storeFile"]?.let { file(it) }
-        storePassword= keyProps["storePassword"] as String?
-    }
-}
-buildTypes {
-    release {
-        signingConfig = signingConfigs.getByName("release")
-        isMinifyEnabled = false
-    }
-}
-```
-
-**Step 4 — Build**
+**Step 4 — Build** (after creating the keystore and `key.properties`)
 ```
 # APK (direct install / testing)
 flutter build apk --release
