@@ -315,7 +315,7 @@ class _VaultCategoryDetailScreenState extends State<VaultCategoryDetailScreen> {
             DropdownButtonFormField<VaultFieldType>(
               value: type,
               decoration: const InputDecoration(labelText: 'Type'),
-              items: VaultFieldType.values.map((t) => DropdownMenuItem(value: t, child: Text(t.name))).toList(),
+              items: VaultFieldType.values.where((t) => t != VaultFieldType.hidden).map((t) => DropdownMenuItem(value: t, child: Text(t.name))).toList(),
               onChanged: (v) => setSt(() { type = v!; errorMsg = null; }),
             ),
             const SizedBox(height: 10),
@@ -536,7 +536,7 @@ class _FieldCardState extends State<_FieldCard> {
                     controller: _ctrl,
                     autofocus: true,
                     style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: kTextDark),
-                    obscureText: _isHidden,
+                    obscureText: false,
                     keyboardType: _keyboardType(widget.field.type),
                     inputFormatters: widget.field.type == VaultFieldType.number
                         ? [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))]
@@ -560,7 +560,7 @@ class _FieldCardState extends State<_FieldCard> {
             ],
           ])),
           if (!widget.selectMode) ...[
-            if (_isHidden)
+            if (_isHidden && !_editing)
               GestureDetector(
                 onTap: () { HapticFeedback.lightImpact(); widget.onReveal(); },
                 child: Padding(padding: const EdgeInsets.symmetric(horizontal: 6),

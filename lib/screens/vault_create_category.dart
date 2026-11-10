@@ -258,7 +258,7 @@ class _FieldDraftCardState extends State<_FieldDraftCard> {
             // Type
             Row(children: [
               const Text('Type: ', style: TextStyle(fontSize: 10, color: kTextLight)),
-              ...VaultFieldType.values.map((t) => Padding(
+              ...VaultFieldType.values.where((t) => t != VaultFieldType.hidden).map((t) => Padding(
                 padding: const EdgeInsets.only(right: 6),
                 child: GestureDetector(
                   onTap: () { setState(() { widget.draft.type = t; widget.onChanged(); }); },

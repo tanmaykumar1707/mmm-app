@@ -817,7 +817,7 @@ class _BankFieldCardState extends State<_BankFieldCard> {
             TextField(
               controller: _valCtrl,
               autofocus: true,
-              obscureText: _isHidden,
+              obscureText: false,
               keyboardType: _keyboardType(widget.field.type),
               style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: kTextDark),
               decoration: InputDecoration(
@@ -1065,7 +1065,7 @@ class _CardFieldRowState extends State<_CardFieldRow> {
           TextField(
             controller: _ctrl,
             autofocus: true,
-            obscureText: _isHidden,
+            obscureText: false,
             keyboardType: widget.field.type == VaultFieldType.number ? TextInputType.number : TextInputType.text,
             style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: kTextDark),
             decoration: InputDecoration(
