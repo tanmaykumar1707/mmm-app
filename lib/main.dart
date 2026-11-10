@@ -7,6 +7,7 @@ import 'services/state_provider.dart';
 import 'services/firebase_service.dart';
 import 'services/vault_provider.dart';
 import 'services/vault_notification_service.dart';
+import 'services/watch_service.dart';
 import 'screens/login_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/share_access_screen.dart';
@@ -93,6 +94,7 @@ class _AuthGateState extends State<_AuthGate> {
           await sp.loadSharedWorkspaces();
           if (mounted) sp.switchWorkspace(user.uid);
           if (mounted) context.read<VaultProvider>().init(user.uid);
+          WatchService.instance.init(sp);
         } else {
           if (mounted) sp.clearWorkspace();
         }
