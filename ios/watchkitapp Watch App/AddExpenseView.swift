@@ -37,7 +37,7 @@ struct AddExpenseView: View {
                         .font(.caption2)
                         .foregroundColor(.secondary)
                     TextField("0", text: $amountText)
-                        .keyboardType(.decimalPad)
+                        //.keyboardType(.decimalPad)
                         .multilineTextAlignment(.leading)
                         .font(.title3.monospacedDigit())
                         .padding(6)

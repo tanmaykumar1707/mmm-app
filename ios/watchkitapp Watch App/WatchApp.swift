@@ -1,6 +1,6 @@
 import SwiftUI
 
-@main
+ @main
 struct MMMWatchApp: App {
 
     @WKApplicationDelegateAdaptor var delegate: AppDelegate

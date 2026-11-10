@@ -12,7 +12,7 @@ class PhoneConnector: NSObject, ObservableObject {
     @Published var people: [String] = []
     @Published var sendState: SendState = .idle
 
-    enum SendState {
+    enum SendState: Equatable {
         case idle
         case sending
         case success
