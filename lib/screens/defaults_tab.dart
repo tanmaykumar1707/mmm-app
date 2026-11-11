@@ -1,6 +1,8 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/state_provider.dart';
+import '../services/biometric_service.dart';
 import '../models/expense.dart';
 import '../utils/constants.dart';
 
@@ -29,6 +31,8 @@ class DefaultsTab extends StatelessWidget {
             'These are copied to a new month when you tap "Copy Defaults to Start". '
             'Edit them to match your recurring monthly expenses.',
             style: TextStyle(fontSize: 13, color: kTextMid))),
+        const SizedBox(height: 16),
+        const _AppLockSection(),
         const SizedBox(height: 16),
         // People manager
         _PeopleSection(sp: sp),
@@ -101,6 +105,50 @@ class DefaultsTab extends StatelessWidget {
         ],
       ])),
     ]);
+  }
+}
+
+class _AppLockSection extends StatefulWidget {
+  const _AppLockSection();
+  @override
+  State<_AppLockSection> createState() => _AppLockSectionState();
+}
+
+class _AppLockSectionState extends State<_AppLockSection> {
+  bool _enabled = false;
+  bool _available = false;
+  bool _loading = true;
+
+  @override
+  void initState() { super.initState(); _load(); }
+
+  Future<void> _load() async {
+    final avail = await BiometricService.instance.isAvailable();
+    final enabled = await BiometricService.instance.isEnabled();
+    if (mounted) setState(() { _available = avail; _enabled = enabled; _loading = false; });
+  }
+
+  Future<void> _toggle(bool val) async {
+    final ok = await BiometricService.instance.authenticate();
+    if (!ok || !mounted) return;
+    await BiometricService.instance.setEnabled(val);
+    setState(() => _enabled = val);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (kIsWeb || _loading || !_available) return const SizedBox.shrink();
+    return Card(
+      margin: EdgeInsets.zero,
+      child: SwitchListTile(
+        secondary: const Icon(Icons.lock_rounded),
+        title: const Text('App Lock', style: TextStyle(fontWeight: FontWeight.w600)),
+        subtitle: const Text('Require biometric/PIN to open app'),
+        value: _enabled,
+        activeColor: const Color(0xFF2563EB),
+        onChanged: _toggle,
+      ),
+    );
   }
 }
 

@@ -24,6 +24,8 @@ dependencies:
   timezone: ^0.9.4
   flutter_timezone: ^3.0.1
   shared_preferences: ^2.3.3
+  local_auth: ^2.3.0
+  package_info_plus: ^8.0.0
 
 dev_dependencies:
   flutter_test:
