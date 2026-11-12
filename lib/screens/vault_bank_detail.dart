@@ -34,6 +34,7 @@ class _VaultBankDetailScreenState extends State<VaultBankDetailScreen> {
   void _cancelBankSelect() => setState(() { _selectedBankIds.clear(); _bankSelectMode = false; });
 
   void _shareBanks(VaultCategory cat) {
+    HapticFeedback.lightImpact();
     final selected = cat.instances.where((i) => _selectedBankIds.contains(i.id));
     final text = selected.map((inst) {
       final lines = inst.fields.map((f) => '  ${f.label}: ${f.value ?? ''}').join('\n');
@@ -196,6 +197,7 @@ class _VaultBankDetailScreenState extends State<VaultBankDetailScreen> {
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
             onPressed: () async {
               if (nameCtrl.text.trim().isEmpty) return;
+              HapticFeedback.lightImpact();
               Navigator.pop(ctx);
               final instance = VaultBankInstance(
                 id: genId(), bankName: nameCtrl.text.trim(),
@@ -223,7 +225,7 @@ class _VaultBankDetailScreenState extends State<VaultBankDetailScreen> {
         ),
       ],
     ));
-    if (ok == true) await vp.deleteBankInstance(catId, instance.id);
+    if (ok == true) { HapticFeedback.mediumImpact(); await vp.deleteBankInstance(catId, instance.id); }
   }
 }
 
@@ -279,6 +281,7 @@ class _BankInstanceCardState extends State<_BankInstanceCard> {
   void _cancelFieldSelect() => setState(() { _selectedFields.clear(); _fieldSelectMode = false; });
 
   void _shareFields() {
+    HapticFeedback.lightImpact();
     final lines = widget.instance.fields
         .where((f) => _selectedFields.contains(f.id))
         .map((f) => '${f.label}: ${f.value ?? ''}')
@@ -290,6 +293,7 @@ class _BankInstanceCardState extends State<_BankInstanceCard> {
   }
 
   void _shareCards() {
+    HapticFeedback.lightImpact();
     final lines = widget.instance.cards.map((card) {
       final cardNum = card.fields.where((f) => f.label == 'Card Number').firstOrNull;
       final expiry  = card.fields.where((f) => f.label == 'Expiry').firstOrNull;
@@ -325,11 +329,11 @@ class _BankInstanceCardState extends State<_BankInstanceCard> {
           ),
           const SizedBox(height: 12),
           Wrap(spacing: 8, children: [
-            for (final t in VaultFieldType.values)
+            for (final t in VaultFieldType.values.where((t) => t != VaultFieldType.hidden))
               ChoiceChip(
                 label: Text(t.name, style: const TextStyle(fontSize: 13)),
                 selected: fieldType == t,
-                onSelected: (_) => setS(() { fieldType = t; if (t == VaultFieldType.hidden) hidden = true; }),
+                onSelected: (_) => setS(() => fieldType = t),
                 selectedColor: kPrimary.withValues(alpha: 0.15),
               ),
           ]),
@@ -353,6 +357,7 @@ class _BankInstanceCardState extends State<_BankInstanceCard> {
                   SnackBar(content: Text('A field named "$label" already exists'), backgroundColor: kDanger));
                 return;
               }
+              HapticFeedback.lightImpact();
               Navigator.pop(ctx);
               final newField = VaultField(
                 id: genId(), label: label,
@@ -410,6 +415,7 @@ class _BankInstanceCardState extends State<_BankInstanceCard> {
                 padding: const EdgeInsets.symmetric(vertical: 14),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
             onPressed: () async {
+              HapticFeedback.lightImpact();
               Navigator.pop(ctx);
               final card = VaultBankCard(id: genId(), cardType: cardType, fields: buildBankCardFields());
               await widget.vp.addBankCard(widget.catId, widget.instance.id, card);
@@ -619,6 +625,7 @@ class _BankInstanceCardState extends State<_BankInstanceCard> {
                         vp: widget.vp,
                         onDelete: () => _confirmDeleteCard(context, card),
                         onCopyField: (f) {
+                          HapticFeedback.lightImpact();
                           Clipboard.setData(ClipboardData(text: f.value ?? ''));
                           ScaffoldMessenger.of(context).showSnackBar(SnackBar(
                               content: Text('${f.label} copied'),
@@ -672,7 +679,7 @@ class _BankInstanceCardState extends State<_BankInstanceCard> {
                 // Delete bank
                 const SizedBox(height: 4),
                 OutlinedButton.icon(
-                  onPressed: widget.onDelete,
+                  onPressed: () { HapticFeedback.mediumImpact(); widget.onDelete(); },
                   icon: const Icon(Icons.delete_outline_rounded, size: 18, color: kDanger),
                   label: const Text('Delete This Bank', style: TextStyle(fontSize: 14, color: kDanger, fontWeight: FontWeight.w600)),
                   style: OutlinedButton.styleFrom(
@@ -799,7 +806,7 @@ class _BankFieldCardState extends State<_BankFieldCard> {
                 overflow: TextOverflow.ellipsis)),
             if (!widget.selectMode)
               GestureDetector(
-                onTap: widget.onDelete,
+                onTap: () { HapticFeedback.mediumImpact(); widget.onDelete(); },
                 child: Padding(padding: const EdgeInsets.only(left: 6),
                   child: Icon(Icons.delete_outline_rounded, size: 18, color: kDanger.withValues(alpha: 0.6))),
               ),
@@ -810,7 +817,7 @@ class _BankFieldCardState extends State<_BankFieldCard> {
             TextField(
               controller: _valCtrl,
               autofocus: true,
-              obscureText: _isHidden,
+              obscureText: false,
               keyboardType: _keyboardType(widget.field.type),
               style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: kTextDark),
               decoration: InputDecoration(
@@ -823,7 +830,7 @@ class _BankFieldCardState extends State<_BankFieldCard> {
                     borderSide: const BorderSide(color: kPrimary, width: 1.5)),
                 filled: true, fillColor: Colors.white,
                 suffixIcon: GestureDetector(
-                  onTap: () { widget.onSaveValue(_valCtrl.text); setState(() => _editingValue = false); },
+                  onTap: () { HapticFeedback.lightImpact(); widget.onSaveValue(_valCtrl.text); setState(() => _editingValue = false); },
                   child: const Icon(Icons.done_rounded, color: kPrimary, size: 24),
                 ),
               ),
@@ -839,13 +846,13 @@ class _BankFieldCardState extends State<_BankFieldCard> {
                   overflow: TextOverflow.ellipsis)),
               if (!widget.selectMode) ...[
                 if (_isHidden) GestureDetector(
-                  onTap: () => setState(() => _revealed = !_revealed),
+                  onTap: () { HapticFeedback.lightImpact(); setState(() => _revealed = !_revealed); },
                   child: Padding(padding: const EdgeInsets.symmetric(horizontal: 6),
                     child: Icon(_revealed ? Icons.visibility_off_rounded : Icons.visibility_rounded,
                         size: 22, color: kTextLight)),
                 ),
                 GestureDetector(
-                  onTap: widget.onCopy,
+                  onTap: () { HapticFeedback.lightImpact(); widget.onCopy(); },
                   child: const Padding(padding: EdgeInsets.symmetric(horizontal: 6),
                     child: Icon(Icons.copy_rounded, size: 22, color: kTextLight)),
                 ),
@@ -953,7 +960,7 @@ class _CardBlock extends StatelessWidget {
                 ),
               ),
               GestureDetector(
-                onTap: onDelete,
+                onTap: () { HapticFeedback.mediumImpact(); onDelete(); },
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
                   decoration: BoxDecoration(
@@ -1058,7 +1065,7 @@ class _CardFieldRowState extends State<_CardFieldRow> {
           TextField(
             controller: _ctrl,
             autofocus: true,
-            obscureText: _isHidden,
+            obscureText: false,
             keyboardType: widget.field.type == VaultFieldType.number ? TextInputType.number : TextInputType.text,
             style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: kTextDark),
             decoration: InputDecoration(
@@ -1072,6 +1079,7 @@ class _CardFieldRowState extends State<_CardFieldRow> {
               filled: true, fillColor: Colors.white,
               suffixIcon: GestureDetector(
                 onTap: () {
+                  HapticFeedback.lightImpact();
                   widget.field.value = _ctrl.text;
                   widget.vp.saveBankCardField(widget.catId, widget.instanceId, widget.cardId, widget.field);
                   setState(() => _editing = false);
@@ -1095,13 +1103,13 @@ class _CardFieldRowState extends State<_CardFieldRow> {
                     letterSpacing: _isHidden && !_revealed ? 1.2 : 0),
                 overflow: TextOverflow.ellipsis)),
             if (_isHidden) GestureDetector(
-              onTap: () => setState(() => _revealed = !_revealed),
+              onTap: () { HapticFeedback.lightImpact(); setState(() => _revealed = !_revealed); },
               child: Padding(padding: const EdgeInsets.symmetric(horizontal: 6),
                 child: Icon(_revealed ? Icons.visibility_off_rounded : Icons.visibility_rounded,
                     size: 22, color: kTextLight)),
             ),
             GestureDetector(
-              onTap: widget.onCopy,
+              onTap: () { HapticFeedback.lightImpact(); widget.onCopy(); },
               child: const Padding(padding: EdgeInsets.symmetric(horizontal: 6),
                 child: Icon(Icons.copy_rounded, size: 22, color: kTextLight)),
             ),

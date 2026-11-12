@@ -75,12 +75,14 @@ class _VaultCategoryDetailScreenState extends State<VaultCategoryDetailScreen> {
   }
 
   void _share(String text, GlobalKey key) {
+    HapticFeedback.lightImpact();
     final box = key.currentContext?.findRenderObject() as RenderBox?;
     final origin = box == null ? null : box.localToGlobal(Offset.zero) & box.size;
     Share.share(withBranding(text), sharePositionOrigin: origin);
   }
 
   void _copyField(VaultField f) {
+    HapticFeedback.lightImpact();
     Clipboard.setData(ClipboardData(text: f.value ?? ''));
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text('${f.label} copied'), duration: const Duration(seconds: 1)));
@@ -313,7 +315,7 @@ class _VaultCategoryDetailScreenState extends State<VaultCategoryDetailScreen> {
             DropdownButtonFormField<VaultFieldType>(
               value: type,
               decoration: const InputDecoration(labelText: 'Type'),
-              items: VaultFieldType.values.map((t) => DropdownMenuItem(value: t, child: Text(t.name))).toList(),
+              items: VaultFieldType.values.where((t) => t != VaultFieldType.hidden).map((t) => DropdownMenuItem(value: t, child: Text(t.name))).toList(),
               onChanged: (v) => setSt(() { type = v!; errorMsg = null; }),
             ),
             const SizedBox(height: 10),
@@ -374,6 +376,7 @@ class _VaultCategoryDetailScreenState extends State<VaultCategoryDetailScreen> {
                   setSt(() => errorMsg = 'Expiry/Reminder alert requires Date type — change Type to "date"');
                   return;
                 }
+                HapticFeedback.lightImpact();
                 Navigator.pop(ctx);
                 final field = VaultField(
                   id: genId(), label: label, type: hidden ? VaultFieldType.hidden : type,
@@ -430,6 +433,7 @@ class _FieldCardState extends State<_FieldCard> {
   bool get _isHidden => widget.field.type == VaultFieldType.hidden;
 
   Future<void> _saveField() async {
+    HapticFeedback.lightImpact();
     widget.field.value = _ctrl.text;
     final cats = widget.vp.categoriesForPerson(widget.vp.activePersonId ?? '');
     final catId = cats.firstWhere((c) => c.fields.any((f) => f.id == widget.field.id)).id;
@@ -532,7 +536,7 @@ class _FieldCardState extends State<_FieldCard> {
                     controller: _ctrl,
                     autofocus: true,
                     style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: kTextDark),
-                    obscureText: _isHidden,
+                    obscureText: false,
                     keyboardType: _keyboardType(widget.field.type),
                     inputFormatters: widget.field.type == VaultFieldType.number
                         ? [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))]
@@ -556,14 +560,14 @@ class _FieldCardState extends State<_FieldCard> {
             ],
           ])),
           if (!widget.selectMode) ...[
-            if (_isHidden)
+            if (_isHidden && !_editing)
               GestureDetector(
-                onTap: widget.onReveal,
+                onTap: () { HapticFeedback.lightImpact(); widget.onReveal(); },
                 child: Padding(padding: const EdgeInsets.symmetric(horizontal: 6),
                   child: Icon(widget.revealed ? Icons.visibility_off_rounded : Icons.visibility_rounded,
                     size: 26, color: kTextLight))),
             GestureDetector(
-              onTap: widget.onCopy,
+              onTap: () { HapticFeedback.lightImpact(); widget.onCopy(); },
               child: Padding(padding: const EdgeInsets.symmetric(horizontal: 6),
                 child: const Icon(Icons.copy_rounded, size: 24, color: kTextLight))),
             GestureDetector(
@@ -577,6 +581,7 @@ class _FieldCardState extends State<_FieldCard> {
                 if (v == 'pin') widget.onPin(widget.vp);
                 if (v == 'alerts') _showManageAlerts(context);
                 if (v == 'delete') {
+                  HapticFeedback.mediumImpact();
                   final ok = await showDialog<bool>(
                     context: context,
                     builder: (ctx) => AlertDialog(
@@ -657,6 +662,7 @@ class _FieldCardState extends State<_FieldCard> {
           SizedBox(width: double.infinity, child: ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: widget.color, foregroundColor: Colors.white),
             onPressed: () async {
+              HapticFeedback.lightImpact();
               Navigator.pop(ctx);
               await widget.vp.saveFieldAlerts(catId, widget.field.id, alerts);
             },

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 import '../services/vault_provider.dart';
@@ -47,6 +48,7 @@ class _VaultTabState extends State<VaultTab> {
   void _cancelCatSelect() => setState(() { _selectedCats.clear(); _catSelectMode = false; });
 
   void _shareCats(VaultProvider vp) {
+    HapticFeedback.lightImpact();
     final activePerson = vp.activePersonId;
     if (activePerson == null) return;
     final cats = vp.categoriesForPerson(activePerson).where((c) => _selectedCats.contains(c.id));
@@ -425,7 +427,7 @@ class _VaultTabState extends State<VaultTab> {
         ],
       ),
     );
-    if (confirmed == true) await vp.deletePerson(person.id);
+    if (confirmed == true) { HapticFeedback.mediumImpact(); await vp.deletePerson(person.id); }
   }
 
   Future<void> _confirmWipeVault(BuildContext context, VaultProvider vp) async {
@@ -541,6 +543,7 @@ class _VaultTabState extends State<VaultTab> {
             style: ElevatedButton.styleFrom(backgroundColor: kPrimary, foregroundColor: Colors.white),
             onPressed: () async {
               if (ctrl.text.trim().isNotEmpty) {
+                HapticFeedback.lightImpact();
                 Navigator.pop(ctx);
                 await vp.addPerson(ctrl.text.trim(), selectedColor);
               }
@@ -769,7 +772,7 @@ class _FolderCardState extends State<_FolderCard> {
         ],
       ),
     );
-    if (ok == true) await widget.vp.deleteFolder(widget.folder.id);
+    if (ok == true) { HapticFeedback.mediumImpact(); await widget.vp.deleteFolder(widget.folder.id); }
   }
 
   void _openCat(BuildContext context, VaultCategory cat) {

@@ -90,7 +90,7 @@ class _CardsTabState extends State<CardsTab> {
           Row(children: [
             IconButton(icon: const Icon(Icons.share_rounded, color: Colors.white),
               tooltip: 'Share summary',
-              onPressed: () => _shareCards(context, sp, cards, filteredCash, _filterPerson)),
+              onPressed: () { HapticFeedback.lightImpact(); _shareCards(context, sp, cards, filteredCash, _filterPerson); }),
             IconButton(icon: const Icon(Icons.chevron_right, color: Colors.white),
               onPressed: () => setState(() { _month++; if (_month > 12) { _month = 1; _year++; } })),
           ]),
@@ -193,13 +193,13 @@ class _CardsTabState extends State<CardsTab> {
       if (thisB.isNotEmpty) {
         lines.add('  This Bill:');
         for (final t in thisB) {
-          lines.add('    ${t.spentFor.padRight(18)} ${formatINRFull(t.amount)}  (${t.spentBy})');
+          lines.add('    ${t.spentFor.padRight(18)} ${formatINRFull(t.amount)}  (${t.spentBy})  ${t.date}');
         }
       }
       if (nextB.isNotEmpty) {
         lines.add('  Next Bill:');
         for (final t in nextB) {
-          lines.add('    ${t.spentFor.padRight(18)} ${formatINRFull(t.amount)}  (${t.spentBy})');
+          lines.add('    ${t.spentFor.padRight(18)} ${formatINRFull(t.amount)}  (${t.spentBy})  ${t.date}');
         }
       }
       lines.add('');
@@ -210,7 +210,7 @@ class _CardsTabState extends State<CardsTab> {
     if (activeCash.isNotEmpty) {
       lines.add('Cash / Wallet  ${formatINRFull(cashTotal)}');
       for (final t in activeCash) {
-        lines.add('  ${t.spentFor.padRight(18)} ${formatINRFull(t.amount)}  (${t.spentBy})');
+        lines.add('  ${t.spentFor.padRight(18)} ${formatINRFull(t.amount)}  (${t.spentBy})  ${t.date}');
       }
       lines.add('');
     }
@@ -594,10 +594,12 @@ class _TxnRow extends StatelessWidget {
               shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
               builder: (_) => _AddTxnSheet(card: card, monthKey: monthKey, sp: sp, existing: t));
           } else if (v == 'paid') {
+            HapticFeedback.lightImpact();
             sp.toggleCardTxnPaid(card.id, monthKey, t.id);
           } else if (v == 'toggle') {
             sp.toggleNextBill(card.id, monthKey, t.id);
           } else {
+            HapticFeedback.mediumImpact();
             showDialog<bool>(
               context: context,
               builder: (ctx) => AlertDialog(
@@ -689,6 +691,7 @@ class _AddTxnSheetState extends State<_AddTxnSheet> {
   }
 
   void _save() {
+    HapticFeedback.lightImpact();
     if (_forCtrl.text.isEmpty) return;
     final dateStr = '${_date.year}-${_date.month.toString().padLeft(2,'0')}-${_date.day.toString().padLeft(2,'0')}';
 
@@ -905,8 +908,10 @@ class _CashSection extends StatelessWidget {
                     shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
                     builder: (_) => _AddCashSheet(monthKey: monthKey, sp: sp, existing: t));
                 } else if (v == 'paid') {
+                  HapticFeedback.lightImpact();
                   sp.toggleCashTxnPaid(monthKey, t.id);
                 } else {
+                  HapticFeedback.mediumImpact();
                   showDialog<bool>(
                     context: context,
                     builder: (ctx) => AlertDialog(
@@ -995,6 +1000,7 @@ class _AddCashSheetState extends State<_AddCashSheet> {
           onPressed: () {
             final amt = double.tryParse(_amtCtrl.text) ?? 0;
             if (_forCtrl.text.isEmpty || amt <= 0) return;
+            HapticFeedback.lightImpact();
             final src = _srcCtrl.text.trim();
             if (src.isNotEmpty) widget.sp.addCashSource(src);
             if (_isEdit) {
@@ -1175,6 +1181,7 @@ class _CardsShareSheetState extends State<_CardsShareSheet> {
           icon: const Icon(Icons.share_rounded, size: 16),
           label: const Text('Share'),
           onPressed: () {
+            HapticFeedback.lightImpact();
             final box = _shareKey.currentContext?.findRenderObject() as RenderBox?;
             final origin = box == null ? null
                 : box.localToGlobal(Offset.zero) & box.size;

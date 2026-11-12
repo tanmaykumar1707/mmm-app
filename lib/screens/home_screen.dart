@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import '../services/state_provider.dart';
 import '../services/firebase_service.dart';
 import '../utils/constants.dart';
@@ -212,7 +213,8 @@ class _AppDrawer extends StatelessWidget {
           _DrawerItem(icon: Icons.people_outline_rounded, label: 'People & Access',
             onTap: () { Navigator.pop(context); Navigator.pushNamed(context, '/share-access'); }),
           _DrawerItem(icon: Icons.notifications_none_rounded, label: 'Alerts'),
-          _DrawerItem(icon: Icons.info_outline_rounded, label: 'About'),
+          _DrawerItem(icon: Icons.info_outline_rounded, label: 'About',
+            onTap: () { Navigator.pop(context); _showAbout(context); }),
         ])),
         // Logout
         const Divider(height: 1),
@@ -239,6 +241,12 @@ class _AppDrawer extends StatelessWidget {
     showModalBottomSheet(context: context,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
       builder: (_) => _WorkspaceSheet(sp: sp));
+  }
+
+  void _showAbout(BuildContext context) {
+    showModalBottomSheet(context: context,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (_) => const _AboutSheet());
   }
 }
 
@@ -335,6 +343,79 @@ class _ProfileSheet extends StatelessWidget {
             },
           ),
         ),
+      ]),
+    );
+  }
+}
+
+class _AboutSheet extends StatefulWidget {
+  const _AboutSheet();
+  @override
+  State<_AboutSheet> createState() => _AboutSheetState();
+}
+
+class _AboutSheetState extends State<_AboutSheet> {
+  String _version = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadVersion();
+  }
+
+  Future<void> _loadVersion() async {
+    final info = await PackageInfo.fromPlatform();
+    if (mounted) setState(() => _version = '${info.version} (${info.buildNumber})');
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 24, 24, 32),
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
+        Container(
+          width: 64, height: 64,
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [kPrimary, Color(0xFF7C3AED)],
+              begin: Alignment.topLeft, end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: const Icon(Icons.account_balance_wallet_rounded, color: Colors.white, size: 32),
+        ),
+        const SizedBox(height: 14),
+        const Text('MY LS', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800, fontFamily: 'Outfit', color: kPrimary)),
+        const Text('My Money Manager', style: TextStyle(fontSize: 13, color: kTextMid, fontFamily: 'Outfit')),
+        const SizedBox(height: 6),
+        if (_version.isNotEmpty)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+            decoration: BoxDecoration(
+              color: kPrimary.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Text('v$_version', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: kPrimary, fontFamily: 'Outfit')),
+          ),
+        const SizedBox(height: 20),
+        const Divider(),
+        const SizedBox(height: 12),
+        const Row(children: [
+          Icon(Icons.person_rounded, size: 16, color: kTextLight),
+          SizedBox(width: 8),
+          Text('Developer', style: TextStyle(fontSize: 12, color: kTextLight, fontFamily: 'Outfit')),
+          Spacer(),
+          Text('Tanmay Kumar', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, fontFamily: 'Outfit')),
+        ]),
+        const SizedBox(height: 10),
+        const Row(children: [
+          Icon(Icons.info_outline_rounded, size: 16, color: kTextLight),
+          SizedBox(width: 8),
+          Text('Tagline', style: TextStyle(fontSize: 12, color: kTextLight, fontFamily: 'Outfit')),
+          Spacer(),
+          Text('Make Your Life Simple', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, fontFamily: 'Outfit')),
+        ]),
+        const SizedBox(height: 20),
       ]),
     );
   }

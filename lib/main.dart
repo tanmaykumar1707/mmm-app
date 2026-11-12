@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:provider/provider.dart';
@@ -7,8 +8,10 @@ import 'services/state_provider.dart';
 import 'services/firebase_service.dart';
 import 'services/vault_provider.dart';
 import 'services/vault_notification_service.dart';
+import 'services/biometric_service.dart';
 import 'screens/login_screen.dart';
 import 'screens/home_screen.dart';
+import 'screens/lock_screen.dart';
 import 'screens/share_access_screen.dart';
 import 'widgets/app_theme.dart';
 
@@ -59,6 +62,7 @@ class _AuthGate extends StatefulWidget {
 
 class _AuthGateState extends State<_AuthGate> {
   bool _loading = true;
+  bool _locked = false;
   String? _error;
   StreamSubscription? _authSub;
 
@@ -100,7 +104,11 @@ class _AuthGateState extends State<_AuthGate> {
         debugPrint('Auth/Firebase init error: $e');
         if (mounted) setState(() => _error = e.toString());
       }
-      if (mounted) setState(() => _loading = false);
+      if (mounted) {
+        bool locked = false;
+        if (!kIsWeb) locked = await BiometricService.instance.isEnabled();
+        setState(() { _loading = false; _locked = locked; });
+      }
     }, onError: (e) {
       debugPrint('Auth stream error: $e');
       if (mounted) setState(() { _loading = false; _error = e.toString(); });
@@ -155,6 +163,7 @@ class _AuthGateState extends State<_AuthGate> {
 
     final user = FirebaseService.currentUser;
     if (user == null) return const LoginScreen();
+    if (_locked) return LockScreen(onUnlock: () => setState(() => _locked = false));
     return const HomeScreen();
   }
 }
