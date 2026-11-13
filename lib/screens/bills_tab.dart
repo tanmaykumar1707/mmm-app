@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../models/bill_model.dart';
 import '../services/bill_provider.dart';
+import '../services/state_provider.dart';
 import '../utils/constants.dart';
 import 'bill_detail_screen.dart';
 import 'bill_add_edit_screen.dart';
@@ -12,7 +13,8 @@ class BillsTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bp = context.watch<BillProvider>();
+    final bp       = context.watch<BillProvider>();
+    final readOnly = context.watch<StateProvider>().isReadOnly;
     if (bp.loading) {
       return const Center(child: CircularProgressIndicator());
     }
@@ -59,7 +61,7 @@ class BillsTab extends StatelessWidget {
         // ── List ─────────────────────────────────────────────────────────
         Expanded(
           child: total == 0
-              ? _EmptyState(onAdd: () => _openAdd(context))
+              ? _EmptyState(onAdd: () => _openAdd(context), readOnly: readOnly)
               : ListView(padding: const EdgeInsets.fromLTRB(16, 16, 16, 100), children: [
                   // Overdue always on top, outside month groups
                   if (overdue.isNotEmpty) ...[
@@ -72,7 +74,7 @@ class BillsTab extends StatelessWidget {
                 ]),
         ),
       ]),
-      floatingActionButton: FloatingActionButton(
+      floatingActionButton: readOnly ? null : FloatingActionButton(
         backgroundColor: kPrimary,
         foregroundColor: Colors.white,
         onPressed: () => _openAdd(context),
@@ -253,7 +255,8 @@ class _BillCard extends StatelessWidget {
 
 class _EmptyState extends StatelessWidget {
   final VoidCallback onAdd;
-  const _EmptyState({required this.onAdd});
+  final bool readOnly;
+  const _EmptyState({required this.onAdd, this.readOnly = false});
   @override
   Widget build(BuildContext context) => Center(
     child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
@@ -262,12 +265,14 @@ class _EmptyState extends StatelessWidget {
       const Text('No recurring bills yet', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: kTextMid)),
       const SizedBox(height: 6),
       const Text('Track rent, electricity, EMIs and more', style: TextStyle(fontSize: 13, color: kTextLight)),
-      const SizedBox(height: 20),
-      ElevatedButton.icon(
-        onPressed: onAdd,
-        icon: const Icon(Icons.add_rounded),
-        label: const Text('Add First Bill'),
-      ),
+      if (!readOnly) ...[
+        const SizedBox(height: 20),
+        ElevatedButton.icon(
+          onPressed: onAdd,
+          icon: const Icon(Icons.add_rounded),
+          label: const Text('Add First Bill'),
+        ),
+      ],
     ]),
   );
 }

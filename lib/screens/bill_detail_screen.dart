@@ -1,8 +1,10 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../models/bill_model.dart';
 import '../services/bill_provider.dart';
+import '../services/state_provider.dart';
 import '../services/bill_notification_service.dart';
 import '../utils/constants.dart';
 import 'bill_add_edit_screen.dart';
@@ -26,9 +28,15 @@ class _BillDetailScreenState extends State<BillDetailScreen> {
   }
 
   Future<void> _fetchPayments() async {
-    final bp = context.read<BillProvider>();
-    final p  = await bp.loadPayments(widget.bill.id);
-    if (mounted) setState(() { _payments = p; _loadingPayments = false; });
+    try {
+      final bp = context.read<BillProvider>();
+      final p  = await bp.loadPayments(widget.bill.id)
+          .timeout(const Duration(seconds: 10));
+      if (mounted) setState(() { _payments = p; _loadingPayments = false; });
+    } catch (e) {
+      debugPrint('loadPayments error: $e');
+      if (mounted) setState(() { _payments = []; _loadingPayments = false; });
+    }
   }
 
   String _fmtDate(DateTime d) {
@@ -77,8 +85,9 @@ class _BillDetailScreenState extends State<BillDetailScreen> {
   @override
   Widget build(BuildContext context) {
     // Get live bill from provider if available
-    final bp   = context.watch<BillProvider>();
-    final bill = bp.bills.firstWhere((b) => b.id == widget.bill.id, orElse: () => widget.bill);
+    final bp       = context.watch<BillProvider>();
+    final readOnly = context.watch<StateProvider>().isReadOnly;
+    final bill     = bp.bills.firstWhere((b) => b.id == widget.bill.id, orElse: () => widget.bill);
     final c    = bill.statusColor;
     final d    = bill.daysUntilDue;
 
@@ -89,7 +98,7 @@ class _BillDetailScreenState extends State<BillDetailScreen> {
         foregroundColor: Colors.white,
         elevation: 0,
         title: Text(bill.name, style: const TextStyle(fontWeight: FontWeight.w700, fontFamily: 'Outfit')),
-        actions: [
+        actions: readOnly ? [] : [
           IconButton(
             icon: const Icon(Icons.edit_rounded),
             onPressed: () => Navigator.push(context,
@@ -167,7 +176,7 @@ class _BillDetailScreenState extends State<BillDetailScreen> {
           const SizedBox(height: 80),
         ])),
       ]),
-      bottomNavigationBar: SafeArea(
+      bottomNavigationBar: readOnly ? null : SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
           child: ElevatedButton.icon(
