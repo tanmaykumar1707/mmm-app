@@ -22,8 +22,12 @@ class StateProvider extends ChangeNotifier {
   String? get currentWorkspaceUid => _currentWorkspaceUid;
   bool get isReadOnly => _currentWorkspaceUid != null && _currentWorkspaceUid != _myUid;
 
-  List<Map<String, String>> _sharedWorkspaces = [];
-  List<Map<String, String>> get sharedWorkspaces => _sharedWorkspaces;
+  // Permissions for the currently viewed shared workspace
+  Map<String, bool> _currentPermissions = {};
+  bool canView(String module) => !isReadOnly || (_currentPermissions[module] ?? false);
+
+  List<Map<String, dynamic>> _sharedWorkspaces = [];
+  List<Map<String, dynamic>> get sharedWorkspaces => _sharedWorkspaces;
 
   // Error state — shown as a banner in the UI
   String? _errorMessage;
@@ -50,8 +54,9 @@ class StateProvider extends ChangeNotifier {
     }
   }
 
-  void switchWorkspace(String uid) {
+  void switchWorkspace(String uid, {Map<String, bool>? permissions}) {
     _currentWorkspaceUid = uid;
+    _currentPermissions = permissions ?? {};
     _stateSub?.cancel();
     _stateSub = FirebaseService.watchState(uid).listen(
       (s) {
@@ -75,6 +80,7 @@ class StateProvider extends ChangeNotifier {
     _stateSub = null;
     _myUid = null;
     _currentWorkspaceUid = null;
+    _currentPermissions = {};
     _state = AppState.empty();
     notifyListeners();
   }

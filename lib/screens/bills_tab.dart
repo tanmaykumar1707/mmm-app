@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../models/bill_model.dart';
 import '../services/bill_provider.dart';
@@ -60,20 +61,14 @@ class BillsTab extends StatelessWidget {
           child: total == 0
               ? _EmptyState(onAdd: () => _openAdd(context))
               : ListView(padding: const EdgeInsets.fromLTRB(16, 16, 16, 100), children: [
+                  // Overdue always on top, outside month groups
                   if (overdue.isNotEmpty) ...[
                     _SectionLabel('Overdue · Act Now'),
                     ...overdue.map((b) => _BillCard(bill: b)),
                     const SizedBox(height: 8),
                   ],
-                  if (soon.isNotEmpty) ...[
-                    _SectionLabel('Due Soon · within 7 days'),
-                    ...soon.map((b) => _BillCard(bill: b)),
-                    const SizedBox(height: 8),
-                  ],
-                  if (later.isNotEmpty) ...[
-                    _SectionLabel('Later'),
-                    ...later.map((b) => _BillCard(bill: b)),
-                  ],
+                  // Upcoming bills grouped by month
+                  ..._buildMonthGroups([...soon, ...later]),
                 ]),
         ),
       ]),
@@ -87,7 +82,35 @@ class BillsTab extends StatelessWidget {
   }
 
   void _openAdd(BuildContext context) {
+    HapticFeedback.mediumImpact();
     Navigator.push(context, MaterialPageRoute(builder: (_) => const BillAddEditScreen()));
+  }
+
+  List<Widget> _buildMonthGroups(List<Bill> bills) {
+    if (bills.isEmpty) return [];
+
+    // Group by "YYYY-MM"
+    final Map<String, List<Bill>> groups = {};
+    for (final b in bills) {
+      final d = b.nextDueParsed;
+      final key = '${d.year}-${d.month.toString().padLeft(2, '0')}';
+      groups.putIfAbsent(key, () => []).add(b);
+    }
+
+    const months = ['','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    final sortedKeys = groups.keys.toList()..sort();
+
+    final widgets = <Widget>[];
+    for (final key in sortedKeys) {
+      final parts  = key.split('-');
+      final year   = parts[0];
+      final month  = months[int.parse(parts[1])];
+      final group  = groups[key]!..sort((a, b) => a.nextDueParsed.compareTo(b.nextDueParsed));
+      widgets.add(_MonthHeader(label: '$month  ·  $year'));
+      widgets.addAll(group.map((b) => _BillCard(bill: b)));
+      widgets.add(const SizedBox(height: 8));
+    }
+    return widgets;
   }
 }
 
@@ -132,6 +155,25 @@ class _SectionLabel extends StatelessWidget {
   );
 }
 
+// ── Month header ─────────────────────────────────────────────────────────────
+
+class _MonthHeader extends StatelessWidget {
+  final String label;
+  const _MonthHeader({required this.label});
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.only(bottom: 10, top: 4),
+    child: Row(children: [
+      Container(width: 4, height: 16,
+        decoration: BoxDecoration(color: kPrimary, borderRadius: BorderRadius.circular(2))),
+      const SizedBox(width: 8),
+      Text(label.toUpperCase(),
+        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w800,
+          letterSpacing: 0.8, color: kTextDark)),
+    ]),
+  );
+}
+
 // ── Bill card ─────────────────────────────────────────────────────────────────
 
 class _BillCard extends StatelessWidget {
@@ -149,8 +191,10 @@ class _BillCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = bill.statusColor;
     return GestureDetector(
-      onTap: () => Navigator.push(context,
-        MaterialPageRoute(builder: (_) => BillDetailScreen(bill: bill))),
+      onTap: () {
+        HapticFeedback.lightImpact();
+        Navigator.push(context, MaterialPageRoute(builder: (_) => BillDetailScreen(bill: bill)));
+      },
       child: Container(
         margin: const EdgeInsets.only(bottom: 8),
         decoration: BoxDecoration(

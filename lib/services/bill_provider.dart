@@ -31,7 +31,7 @@ class BillProvider extends ChangeNotifier {
     notifyListeners();
     _cancelSubs();
 
-    _subs.add(_db.child('users/$uid/bills').onValue.listen((event) {
+    _subs.add(_db.child('userData/$uid/bills').onValue.listen((event) {
       if (!event.snapshot.exists || event.snapshot.value == null) {
         _bills = [];
       } else {
@@ -59,7 +59,7 @@ class BillProvider extends ChangeNotifier {
 
   Future<List<BillPayment>> loadPayments(String billId) async {
     if (_uid == null) return [];
-    final snap = await _db.child('users/$_uid/bills/$billId/payments').get();
+    final snap = await _db.child('userData/$_uid/bills/$billId/payments').get();
     if (!snap.exists || snap.value == null) return [];
     final list = (snap.value as Map).entries
         .map((e) => BillPayment.fromMap(e.key as String, Map.from(e.value as Map)))
@@ -72,7 +72,7 @@ class BillProvider extends ChangeNotifier {
 
   Future<void> addBill(Bill bill) async {
     if (_uid == null) return;
-    await _db.child('users/$_uid/bills/${bill.id}').set(bill.toMap());
+    await _db.child('userData/$_uid/bills/${bill.id}').set(bill.toMap());
   }
 
   Future<void> updateBill(Bill bill) async {
@@ -80,12 +80,12 @@ class BillProvider extends ChangeNotifier {
     // Only update mutable fields; payments subcollection is untouched.
     final map = bill.toMap();
     map.remove('payments'); // never overwrite payments via full update
-    await _db.child('users/$_uid/bills/${bill.id}').update(map);
+    await _db.child('userData/$_uid/bills/${bill.id}').update(map);
   }
 
   Future<void> deleteBill(String billId) async {
     if (_uid == null) return;
-    await _db.child('users/$_uid/bills/$billId').remove();
+    await _db.child('userData/$_uid/bills/$billId').remove();
   }
 
   /// Atomic batch: write payment record + advance nextDueDate on the bill.
@@ -101,8 +101,8 @@ class BillProvider extends ChangeNotifier {
     final paymentId = genId();
     final now = DateTime.now().millisecondsSinceEpoch;
     await _db.update({
-      'users/$_uid/bills/$billId/nextDueDate': nextDueDate,
-      'users/$_uid/bills/$billId/payments/$paymentId': {
+      'userData/$_uid/bills/$billId/nextDueDate': nextDueDate,
+      'userData/$_uid/bills/$billId/payments/$paymentId': {
         'amount': amount,
         'paidOn': paidOn,
         'dueDate': dueDate,

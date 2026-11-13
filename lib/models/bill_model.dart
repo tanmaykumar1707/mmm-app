@@ -87,6 +87,7 @@ class Bill {
   final int dueDay;         // day of month 1-31
   final int? dueMonth;      // 1-12: start month for quarterly/yearly
   final String nextDueDate; // "YYYY-MM-DD" — updated after every payment
+  final bool isIrregular;  // true = no fixed cycle; next due set manually each time
   final List<BillAlert> alerts;
   final int createdAt;
 
@@ -104,6 +105,7 @@ class Bill {
     required this.dueDay,
     this.dueMonth,
     required this.nextDueDate,
+    this.isIrregular = false,
     this.alerts = const [],
     required this.createdAt,
     this.payments = const [],
@@ -122,6 +124,7 @@ class Bill {
     dueDay:       (m['dueDay']  ?? 1) as int,
     dueMonth:     m['dueMonth'] as int?,
     nextDueDate:  m['nextDueDate'] ?? '',
+    isIrregular:  (m['isIrregular'] ?? false) as bool,
     alerts:       m['alerts'] == null
                     ? []
                     : (m['alerts'] as Map).entries
@@ -135,6 +138,7 @@ class Bill {
     'amount': amount, 'colorHex': colorHex, 'dueDay': dueDay,
     if (dueMonth != null) 'dueMonth': dueMonth,
     'nextDueDate': nextDueDate,
+    'isIrregular': isIrregular,
     if (alerts.isNotEmpty) 'alerts': {for (final a in alerts) a.id: a.toMap()},
     'createdAt': createdAt,
   };
@@ -142,7 +146,7 @@ class Bill {
   Bill copyWith({
     String? name, String? type, String? icon, BillCycle? cycle,
     double? amount, String? colorHex, int? dueDay, int? dueMonth,
-    String? nextDueDate, List<BillAlert>? alerts, List<BillPayment>? payments,
+    String? nextDueDate, bool? isIrregular, List<BillAlert>? alerts, List<BillPayment>? payments,
   }) => Bill(
     id: id, createdAt: createdAt,
     name:         name         ?? this.name,
@@ -154,6 +158,7 @@ class Bill {
     dueDay:       dueDay       ?? this.dueDay,
     dueMonth:     dueMonth     ?? this.dueMonth,
     nextDueDate:  nextDueDate  ?? this.nextDueDate,
+    isIrregular:  isIrregular  ?? this.isIrregular,
     alerts:       alerts       ?? this.alerts,
     payments:     payments     ?? this.payments,
   );

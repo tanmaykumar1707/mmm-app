@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../models/bill_model.dart';
 import '../services/bill_provider.dart';
@@ -36,6 +37,7 @@ class _BillDetailScreenState extends State<BillDetailScreen> {
   }
 
   void _showMarkPaid(BuildContext context) {
+    HapticFeedback.mediumImpact();
     final bill = widget.bill;
     showModalBottomSheet(
       context: context,
@@ -51,6 +53,7 @@ class _BillDetailScreenState extends State<BillDetailScreen> {
   }
 
   void _deleteBill() async {
+    HapticFeedback.heavyImpact();
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
@@ -265,21 +268,29 @@ class _MarkPaidSheet extends StatefulWidget {
 }
 
 class _MarkPaidSheetState extends State<_MarkPaidSheet> {
-  final _amtCtrl = TextEditingController();
+  final _amtCtrl  = TextEditingController();
+  final _daysCtrl = TextEditingController();
   DateTime _paidOn = DateTime.now();
   late DateTime _nextDue;
+  bool _usePickDate = true; // for irregular: true=pick date, false=enter days
   bool _saving = false;
 
   @override
   void initState() {
     super.initState();
     _amtCtrl.text = formatAmountInput(widget.bill.amount);
-    try { _nextDue = DateTime.parse(widget.bill.advanceNextDueDate()); }
-    catch (_) { _nextDue = DateTime.now().add(const Duration(days: 30)); }
+    if (widget.bill.isIrregular) {
+      _nextDue = DateTime.now().add(const Duration(days: 30));
+      _daysCtrl.text = '30';
+    } else {
+      try { _nextDue = DateTime.parse(widget.bill.advanceNextDueDate()); }
+      catch (_) { _nextDue = DateTime.now().add(const Duration(days: 30)); }
+    }
   }
 
   @override
-  void dispose() { _amtCtrl.dispose(); super.dispose(); }
+  @override
+  void dispose() { _amtCtrl.dispose(); _daysCtrl.dispose(); super.dispose(); }
 
   String _fmtDate(DateTime d) {
     const m = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -287,6 +298,7 @@ class _MarkPaidSheetState extends State<_MarkPaidSheet> {
   }
 
   Future<void> _confirm() async {
+    HapticFeedback.mediumImpact();
     final amount = double.tryParse(_amtCtrl.text.trim()) ?? widget.bill.amount;
     final paidOnStr  = Bill.fmtDate(_paidOn);
     final dueStr     = widget.bill.nextDueDate;
@@ -305,6 +317,7 @@ class _MarkPaidSheetState extends State<_MarkPaidSheet> {
     );
     final updated = widget.bill.copyWith(nextDueDate: nextDue);
     await BillNotificationService.instance.scheduleBillAlerts(updated);
+    HapticFeedback.heavyImpact();
     widget.onPaid();
     if (mounted) Navigator.pop(context);
   }
@@ -379,36 +392,86 @@ class _MarkPaidSheetState extends State<_MarkPaidSheet> {
       ),
       const SizedBox(height: 8),
 
-      // Next due — editable
+      // Next due date
       const Text('Next Due Date', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: kTextMid)),
       const SizedBox(height: 6),
-      GestureDetector(
-        onTap: () async {
-          final d = await showDatePicker(
-            context: context,
-            initialDate: _nextDue,
-            firstDate: DateTime.now(),
-            lastDate: DateTime(2040),
-          );
-          if (d != null) setState(() => _nextDue = d);
-        },
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-          decoration: BoxDecoration(
-            color: kPrimary.withValues(alpha: 0.06),
-            border: Border.all(color: kPrimary.withValues(alpha: 0.3)),
-            borderRadius: BorderRadius.circular(10),
+      if (widget.bill.isIrregular) ...[
+        // Toggle: Pick date / Enter days
+        Row(children: [
+          Expanded(child: GestureDetector(
+            onTap: () => setState(() => _usePickDate = true),
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: _usePickDate ? kPrimary : const Color(0xFFF3F4F6),
+                borderRadius: const BorderRadius.horizontal(left: Radius.circular(8)),
+              ),
+              child: Text('Pick date', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700,
+                color: _usePickDate ? Colors.white : kTextDark)),
+            ),
+          )),
+          Expanded(child: GestureDetector(
+            onTap: () => setState(() => _usePickDate = false),
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: !_usePickDate ? kPrimary : const Color(0xFFF3F4F6),
+                borderRadius: const BorderRadius.horizontal(right: Radius.circular(8)),
+              ),
+              child: Text('Enter days', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700,
+                color: !_usePickDate ? Colors.white : kTextDark)),
+            ),
+          )),
+        ]),
+        const SizedBox(height: 10),
+        if (_usePickDate)
+          GestureDetector(
+            onTap: () async {
+              final d = await showDatePicker(
+                context: context, initialDate: _nextDue,
+                firstDate: DateTime.now(), lastDate: DateTime(2040),
+              );
+              if (d != null) setState(() => _nextDue = d);
+            },
+            child: _NextDueTile(label: _fmtDate(_nextDue)),
+          )
+        else
+          TextField(
+            controller: _daysCtrl,
+            keyboardType: TextInputType.number,
+            onChanged: (v) {
+              final days = int.tryParse(v);
+              if (days != null && days > 0) setState(() => _nextDue = DateTime.now().add(Duration(days: days)));
+            },
+            decoration: InputDecoration(
+              hintText: 'e.g. 45',
+              suffixText: 'days from today',
+              isDense: true,
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(10),
+                borderSide: const BorderSide(color: kPrimary, width: 1.5),
+              ),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            ),
           ),
-          child: Row(children: [
-            const Icon(Icons.event_rounded, size: 18, color: kPrimary),
-            const SizedBox(width: 10),
-            Text(_fmtDate(_nextDue),
-              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: kPrimary)),
-            const Spacer(),
-            const Text('tap to change', style: TextStyle(fontSize: 11, color: kTextLight)),
-          ]),
+      ] else
+        GestureDetector(
+          onTap: () async {
+            final d = await showDatePicker(
+              context: context, initialDate: _nextDue,
+              firstDate: DateTime.now(), lastDate: DateTime(2040),
+            );
+            if (d != null) setState(() => _nextDue = d);
+          },
+          child: _NextDueTile(label: _fmtDate(_nextDue)),
         ),
-      ),
       const SizedBox(height: 20),
 
       SizedBox(width: double.infinity,
@@ -425,6 +488,27 @@ class _MarkPaidSheetState extends State<_MarkPaidSheet> {
               : const Text('Confirm Payment', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
         ),
       ),
+    ]),
+  );
+}
+
+class _NextDueTile extends StatelessWidget {
+  final String label;
+  const _NextDueTile({required this.label});
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+    decoration: BoxDecoration(
+      color: kPrimary.withValues(alpha: 0.06),
+      border: Border.all(color: kPrimary.withValues(alpha: 0.3)),
+      borderRadius: BorderRadius.circular(10),
+    ),
+    child: Row(children: [
+      const Icon(Icons.event_rounded, size: 18, color: kPrimary),
+      const SizedBox(width: 10),
+      Text(label, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: kPrimary)),
+      const Spacer(),
+      const Text('tap to change', style: TextStyle(fontSize: 11, color: kTextLight)),
     ]),
   );
 }

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+import 'package:flutter/services.dart'; // HapticFeedback + input formatters
 import 'package:provider/provider.dart';
 import '../models/bill_model.dart';
 import '../services/bill_provider.dart';
@@ -21,9 +21,10 @@ class _BillAddEditScreenState extends State<BillAddEditScreen> {
 
   late BillTypeInfo _selType;
   late BillCycle    _cycle;
+  bool _isIrregular = false;
   int  _dueDay   = 1;
   int? _dueMonth;      // for quarterly start-month
-  DateTime? _dueDate;  // for yearly (or any type with day+month picker)
+  DateTime? _dueDate;  // for yearly / irregular first due date
 
   List<BillAlert> _alerts = [
     const BillAlert(id: 'a1', daysBefore: 3, hour: 9, minute: 0),
@@ -40,18 +41,20 @@ class _BillAddEditScreenState extends State<BillAddEditScreen> {
       final b = widget.bill!;
       _nameCtrl.text  = b.name;
       _amtCtrl.text   = formatAmountInput(b.amount);
-      _selType  = billTypeInfo(b.type);
-      _cycle    = b.cycle;
-      _dueDay   = b.dueDay;
+      _selType      = billTypeInfo(b.type);
+      _cycle        = b.cycle;
+      _isIrregular  = b.isIrregular;
+      _dueDay       = b.dueDay;
       _dueMonth = b.dueMonth;
       if (b.nextDueDate.isNotEmpty) {
         try { _dueDate = DateTime.parse(b.nextDueDate); } catch (_) {}
       }
       _alerts = List.from(b.alerts);
     } else {
-      _selType  = kBillTypes.first;
-      _cycle    = BillCycle.monthly;
-      _dueDay   = DateTime.now().day;
+      _selType      = kBillTypes.first;
+      _cycle        = BillCycle.monthly;
+      _isIrregular  = false;
+      _dueDay       = DateTime.now().day;
     }
   }
 
@@ -66,6 +69,9 @@ class _BillAddEditScreenState extends State<BillAddEditScreen> {
 
   String _computeNextDueDate() {
     final today = DateTime.now();
+    if (_isIrregular) {
+      return _dueDate != null ? Bill.fmtDate(_dueDate!) : Bill.fmtDate(today.add(const Duration(days: 30)));
+    }
     switch (_cycle) {
       case BillCycle.monthly:
         final d = DateTime(today.year, today.month, _dueDay);
@@ -87,6 +93,7 @@ class _BillAddEditScreenState extends State<BillAddEditScreen> {
 
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
+    HapticFeedback.mediumImpact();
     setState(() => _saving = true);
     final bp = context.read<BillProvider>();
     final amount = double.tryParse(_amtCtrl.text.trim()) ?? 0;
@@ -105,6 +112,7 @@ class _BillAddEditScreenState extends State<BillAddEditScreen> {
       dueDay:      _dueDay,
       dueMonth:    _dueMonth,
       nextDueDate: nextDue,
+      isIrregular: _isIrregular,
       alerts:      _alerts,
       createdAt:   _isEdit ? widget.bill!.createdAt : DateTime.now().millisecondsSinceEpoch,
     );
@@ -185,16 +193,69 @@ class _BillAddEditScreenState extends State<BillAddEditScreen> {
 
           // ── Cycle ───────────────────────────────────────────────────────
           _Section(title: 'Billing Cycle', child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Row(children: BillCycle.values.map((c) => Expanded(child: Padding(
-              padding: const EdgeInsets.only(right: 6),
-              child: _Chip(
-                label: c == BillCycle.monthly ? 'Monthly' : c == BillCycle.quarterly ? 'Quarterly' : 'Yearly',
-                selected: _cycle == c,
-                onTap: () => setState(() => _cycle = c),
-              ),
-            ))).toList()),
+            // Regular / Irregular toggle
+            Row(children: [
+              Expanded(child: _Chip(
+                label: 'Regular',
+                selected: !_isIrregular,
+                onTap: () => setState(() => _isIrregular = false),
+              )),
+              const SizedBox(width: 10),
+              Expanded(child: _Chip(
+                label: 'Irregular',
+                selected: _isIrregular,
+                onTap: () => setState(() => _isIrregular = true),
+              )),
+            ]),
             const SizedBox(height: 14),
-            _buildDueDatePicker(),
+            if (_isIrregular) ...[
+              const Text('No fixed cycle — you set the next due date each time you pay.',
+                style: TextStyle(fontSize: 12, color: kTextLight)),
+              const SizedBox(height: 10),
+              const Text('First due date', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: kTextMid)),
+              const SizedBox(height: 6),
+              GestureDetector(
+                onTap: () async {
+                  final d = await showDatePicker(
+                    context: context,
+                    initialDate: _dueDate ?? DateTime.now().add(const Duration(days: 7)),
+                    firstDate: DateTime.now(),
+                    lastDate: DateTime(2040),
+                  );
+                  if (d != null) setState(() => _dueDate = d);
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: const Color(0xFFE5E7EB)),
+                  ),
+                  child: Row(children: [
+                    const Icon(Icons.calendar_today_outlined, size: 18, color: kPrimary),
+                    const SizedBox(width: 10),
+                    Text(
+                      _dueDate != null
+                        ? '${_dueDate!.day} ${kMonths[_dueDate!.month - 1]} ${_dueDate!.year}'
+                        : 'Pick due date',
+                      style: TextStyle(fontSize: 14,
+                        color: _dueDate != null ? kTextDark : kTextLight),
+                    ),
+                  ]),
+                ),
+              ),
+            ] else ...[
+              Row(children: BillCycle.values.map((c) => Expanded(child: Padding(
+                padding: const EdgeInsets.only(right: 6),
+                child: _Chip(
+                  label: c == BillCycle.monthly ? 'Monthly' : c == BillCycle.quarterly ? 'Quarterly' : 'Yearly',
+                  selected: _cycle == c,
+                  onTap: () => setState(() => _cycle = c),
+                ),
+              ))).toList()),
+              const SizedBox(height: 14),
+              _buildDueDatePicker(),
+            ],
           ])),
           const SizedBox(height: 16),
 
@@ -354,7 +415,7 @@ class _Chip extends StatelessWidget {
   const _Chip({required this.label, required this.selected, required this.onTap});
   @override
   Widget build(BuildContext context) => GestureDetector(
-    onTap: onTap,
+    onTap: () { HapticFeedback.selectionClick(); onTap(); },
     child: AnimatedContainer(
       duration: const Duration(milliseconds: 150),
       padding: const EdgeInsets.symmetric(vertical: 10),
@@ -391,7 +452,7 @@ class _TypeGrid extends StatelessWidget {
       final sel = t.type == selected.type;
       final c = Color(int.parse(t.colorHex.replaceFirst('#', 'FF'), radix: 16));
       return GestureDetector(
-        onTap: () => onSelect(t),
+        onTap: () { HapticFeedback.selectionClick(); onSelect(t); },
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 150),
           decoration: BoxDecoration(
@@ -428,7 +489,7 @@ class _DayPicker extends StatelessWidget {
         final d = i + 1;
         final sel = d == value;
         return GestureDetector(
-          onTap: () => onChanged(d),
+          onTap: () { HapticFeedback.selectionClick(); onChanged(d); },
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 120),
             width: 36, height: 36,

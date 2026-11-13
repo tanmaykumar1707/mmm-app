@@ -21,13 +21,6 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   int _tab = 0;
 
-  static const _tabs = [
-    {'icon': Icons.calendar_today_rounded,    'label': 'This Month'},
-    {'icon': Icons.credit_card_rounded,       'label': 'Cards'},
-    {'icon': Icons.receipt_long_rounded,      'label': 'Bills'},
-    {'icon': Icons.handshake_rounded,         'label': 'LB'},
-    {'icon': Icons.lock_rounded,              'label': 'Vault'},
-  ];
 
   @override
   Widget build(BuildContext context) {
@@ -86,13 +79,27 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ],
       ),
-      body: Column(
-        children: [
+      body: Builder(builder: (context) {
+        // Build visible tabs based on permissions
+        final allTabs = [
+          {'icon': Icons.calendar_today_rounded, 'label': 'This Month', 'module': 'expenses', 'widget': const MonthTab()},
+          {'icon': Icons.credit_card_rounded,    'label': 'Cards',      'module': 'cards',    'widget': const CardsTab()},
+          {'icon': Icons.receipt_long_rounded,   'label': 'Bills',      'module': 'bills',    'widget': const BillsTab()},
+          {'icon': Icons.handshake_rounded,      'label': 'LB',         'module': 'lb',       'widget': const LbTab()},
+          {'icon': Icons.lock_rounded,           'label': 'Vault',      'module': null,       'widget': const VaultTab()},
+        ];
+        final visibleTabs = allTabs.where((t) {
+          final module = t['module'] as String?;
+          return module == null ? !sp.isReadOnly : sp.canView(module);
+        }).toList();
+        final safeTab = _tab.clamp(0, (visibleTabs.length - 1).clamp(0, 99));
+
+        return Column(children: [
           const Divider(height: 1, color: Color(0xFFE5E7EB)),
           Expanded(
             child: IndexedStack(
-              index: _tab,
-              children: const [MonthTab(), CardsTab(), BillsTab(), LbTab(), VaultTab()],
+              index: safeTab,
+              children: visibleTabs.map((t) => t['widget'] as Widget).toList(),
             ),
           ),
           Container(
@@ -106,18 +113,18 @@ class _HomeScreenState extends State<HomeScreen> {
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceAround,
-                  children: List.generate(_tabs.length, (i) => _NavItem(
-                    icon: _tabs[i]['icon'] as IconData,
-                    label: _tabs[i]['label'] as String,
-                    selected: i == _tab,
+                  children: List.generate(visibleTabs.length, (i) => _NavItem(
+                    icon: visibleTabs[i]['icon'] as IconData,
+                    label: visibleTabs[i]['label'] as String,
+                    selected: i == safeTab,
                     onTap: () => setState(() => _tab = i),
                   )),
                 ),
               ),
             ),
           ),
-        ],
-      ),
+        ]);
+      }),
     );
   }
 
@@ -303,7 +310,8 @@ class _WorkspaceSheet extends StatelessWidget {
               subtitle: Text(ws['email'] ?? '', style: const TextStyle(fontSize: 11)),
               trailing: sp.currentWorkspaceUid == ws['uid'] ? const Icon(Icons.check, color: kAccent) : null,
               onTap: () {
-                sp.switchWorkspace(ws['uid']!);
+                final perms = ws['permissions'] as Map<String, bool>?;
+                sp.switchWorkspace(ws['uid']! as String, permissions: perms);
                 Navigator.pop(context);
               },
             )),

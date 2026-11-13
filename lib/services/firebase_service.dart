@@ -55,25 +55,41 @@ class FirebaseService {
     });
   }
 
-  static Future<List<Map<String, String>>> getSharedWorkspaces(String myUid) async {
+  static Future<List<Map<String, dynamic>>> getSharedWorkspaces(String myUid) async {
     final snap = await _db.ref('receivedAccess/$myUid').get();
     if (!snap.exists) return [];
-    final results = <Map<String, String>>[];
+    final results = <Map<String, dynamic>>[];
     for (final child in snap.children) {
       final profileSnap = await _db.ref('profiles/${child.key}').get();
       if (profileSnap.exists) {
         final profile = Map<String, dynamic>.from(profileSnap.value as Map);
+        // permissions stored as the value in receivedAccess
+        Map<String, bool> permissions = {'expenses': true, 'cards': true, 'lb': true, 'bills': true};
+        if (child.value is Map) {
+          final raw = Map<String, dynamic>.from(child.value as Map);
+          permissions = {
+            'expenses': raw['expenses'] as bool? ?? true,
+            'cards':    raw['cards']    as bool? ?? true,
+            'lb':       raw['lb']       as bool? ?? true,
+            'bills':    raw['bills']    as bool? ?? true,
+          };
+        }
         results.add({
-          'uid': child.key!,
-          'email': profile['email'] ?? '',
+          'uid':         child.key!,
+          'email':       profile['email']       ?? '',
           'displayName': profile['displayName'] ?? '',
+          'permissions': permissions,
         });
       }
     }
     return results;
   }
 
-  static Future<void> grantAccess(String myUid, String targetEmail) async {
+  static Future<void> grantAccess(
+    String myUid,
+    String targetEmail,
+    Map<String, bool> permissions,
+  ) async {
     final profilesSnap = await _db.ref('profiles').get();
     if (!profilesSnap.exists) {
       throw Exception('No MMM profiles found. The other user must sign in to MMM at least once first.');
@@ -90,9 +106,8 @@ class FirebaseService {
     }
     if (targetUid == null) throw Exception('User not found — they must sign in to MMM first.');
     if (targetUid == myUid) throw Exception('Cannot grant access to yourself.');
-    // Write the grant first; receivedAccess security rule requires this grant to exist.
-    await _db.ref('shares/$myUid/grantedTo/$targetUid').set(targetProfile);
-    await _db.ref('receivedAccess/$targetUid/$myUid').set(true);
+    await _db.ref('shares/$myUid/grantedTo/$targetUid').set({...?targetProfile, 'permissions': permissions});
+    await _db.ref('receivedAccess/$targetUid/$myUid').set(permissions);
   }
 
   static Future<List<Map<String, dynamic>>> getGrantedAccesses(String myUid) async {
