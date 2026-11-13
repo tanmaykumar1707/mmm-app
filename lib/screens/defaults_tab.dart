@@ -6,8 +6,8 @@ import '../services/biometric_service.dart';
 import '../models/expense.dart';
 import '../utils/constants.dart';
 
-class DefaultsTab extends StatelessWidget {
-  const DefaultsTab({super.key});
+class DefaultsScreen extends StatelessWidget {
+  const DefaultsScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -15,14 +15,27 @@ class DefaultsTab extends StatelessWidget {
     final defaults = sp.state.defaults;
     final total = defaults.fold(0.0, (s, e) => s + e.amount);
 
-    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      Container(color: kPrimary, padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
-        child: Row(children: [
-          const Text('Default Expenses', style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w700)),
-          const Spacer(),
-          Text(formatINRFull(total), style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600)),
-        ])),
-      Expanded(child: ListView(padding: const EdgeInsets.all(16), children: [
+    return Scaffold(
+      backgroundColor: kBg,
+      appBar: AppBar(
+        backgroundColor: kPrimary,
+        foregroundColor: Colors.white,
+        title: const Text('Settings',
+          style: TextStyle(fontFamily: 'Outfit', fontWeight: FontWeight.w700)),
+      ),
+      body: ListView(padding: const EdgeInsets.all(16), children: [
+        const _AppLockSection(),
+        const SizedBox(height: 16),
+        _PeopleSection(sp: sp),
+        const SizedBox(height: 16),
+        // Default expenses header
+        Row(children: [
+          const Expanded(child: Text('Default Expenses',
+            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: kTextDark))),
+          Text(formatINRFull(total),
+            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: kPrimary)),
+        ]),
+        const SizedBox(height: 8),
         Container(padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(color: kBlue.withValues(alpha: 0.08),
             border: Border.all(color: kBlue.withValues(alpha: 0.3)),
@@ -31,12 +44,7 @@ class DefaultsTab extends StatelessWidget {
             'These are copied to a new month when you tap "Copy Defaults to Start". '
             'Edit them to match your recurring monthly expenses.',
             style: TextStyle(fontSize: 13, color: kTextMid))),
-        const SizedBox(height: 16),
-        const _AppLockSection(),
-        const SizedBox(height: 16),
-        // People manager
-        _PeopleSection(sp: sp),
-        const SizedBox(height: 16),
+        const SizedBox(height: 12),
         // Default expenses list
         ...defaults.map((e) => Card(margin: const EdgeInsets.only(bottom: 8),
           child: ListTile(
@@ -103,8 +111,8 @@ class DefaultsTab extends StatelessWidget {
             )),
           ]))),
         ],
-      ])),
-    ]);
+      ]),
+    );
   }
 }
 

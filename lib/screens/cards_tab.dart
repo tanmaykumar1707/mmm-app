@@ -651,7 +651,7 @@ class _AddTxnSheetState extends State<_AddTxnSheet> {
     final e = widget.existing;
     if (e != null) {
       _forCtrl.text = e.spentFor;
-      _amtCtrl.text = e.amount.toStringAsFixed(0);
+      _amtCtrl.text = formatAmountInput(e.amount);
       _spentBy = e.spentBy.isNotEmpty ? e.spentBy : null;
       _nextBill = e.nextBill;
       _date = DateTime.tryParse(e.date) ?? DateTime.now();
@@ -674,7 +674,7 @@ class _AddTxnSheetState extends State<_AddTxnSheet> {
     final active = _splits.where((s) => s.included).toList();
     if (active.isEmpty || total <= 0) return;
     final share = (total / active.length);
-    final shareStr = share % 1 == 0 ? share.toStringAsFixed(0) : share.toStringAsFixed(2);
+    final shareStr = share == share.truncateToDouble() ? share.toStringAsFixed(0) : share.toStringAsFixed(2).replaceAll(RegExp(r'0+$'), '');
     setState(() {
       for (final s in _splits) {
         s.ctrl.text = s.included ? shareStr : '';
@@ -697,7 +697,7 @@ class _AddTxnSheetState extends State<_AddTxnSheet> {
 
     if (_splitMode && !_isEdit) {
       final entries = _splits.where((s) => s.included).map((s) {
-        final amt = double.tryParse(s.ctrl.text) ?? 0;
+        final amt = double.parse((double.tryParse(s.ctrl.text) ?? 0).toStringAsFixed(2));
         return (person: s.person, amt: amt);
       }).where((e) => e.amt > 0).toList();
       if (entries.isEmpty) return;
@@ -710,7 +710,7 @@ class _AddTxnSheetState extends State<_AddTxnSheet> {
         ));
       }
     } else {
-      final amt = double.tryParse(_amtCtrl.text) ?? 0;
+      final amt = double.parse((double.tryParse(_amtCtrl.text) ?? 0).toStringAsFixed(2));
       if (amt <= 0) return;
       if (_isEdit) {
         widget.sp.updateCardTxn(widget.card.id, widget.monthKey, CardTxn(
@@ -750,7 +750,8 @@ class _AddTxnSheetState extends State<_AddTxnSheet> {
         const SizedBox(height: 4),
       ],
       if (!_splitMode) ...[
-        TextField(controller: _amtCtrl, keyboardType: TextInputType.number,
+        TextField(controller: _amtCtrl, keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          inputFormatters: [kAmountInputFormatter],
           decoration: const InputDecoration(labelText: 'Amount', prefixText: '₹')),
         const SizedBox(height: 12),
         if (widget.sp.state.people.isNotEmpty)
@@ -764,7 +765,8 @@ class _AddTxnSheetState extends State<_AddTxnSheet> {
       ] else ...[
         // Total amount + equal split button
         Row(children: [
-          Expanded(child: TextField(controller: _amtCtrl, keyboardType: TextInputType.number,
+          Expanded(child: TextField(controller: _amtCtrl, keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            inputFormatters: [kAmountInputFormatter],
             decoration: const InputDecoration(labelText: 'Total amount', prefixText: '₹'))),
           const SizedBox(width: 10),
           ElevatedButton(
@@ -963,7 +965,7 @@ class _AddCashSheetState extends State<_AddCashSheet> {
     final e = widget.existing;
     if (e != null) {
       _forCtrl.text = e.spentFor;
-      _amtCtrl.text = e.amount.toStringAsFixed(0);
+      _amtCtrl.text = formatAmountInput(e.amount);
       _srcCtrl.text = e.source;
       _spentBy = e.spentBy.isNotEmpty ? e.spentBy : null;
     } else {
@@ -980,7 +982,8 @@ class _AddCashSheetState extends State<_AddCashSheet> {
       const SizedBox(height: 16),
       TextField(controller: _forCtrl, decoration: const InputDecoration(labelText: 'Spent for')),
       const SizedBox(height: 12),
-      TextField(controller: _amtCtrl, keyboardType: TextInputType.number,
+      TextField(controller: _amtCtrl, keyboardType: const TextInputType.numberWithOptions(decimal: true),
+        inputFormatters: [kAmountInputFormatter],
         decoration: const InputDecoration(labelText: 'Amount', prefixText: '₹')),
       const SizedBox(height: 12),
       TextField(controller: _srcCtrl, decoration: const InputDecoration(labelText: 'Source (Pluxee, Slice, etc.)')),
@@ -998,7 +1001,7 @@ class _AddCashSheetState extends State<_AddCashSheet> {
         const SizedBox(width: 12),
         Expanded(child: ElevatedButton(
           onPressed: () {
-            final amt = double.tryParse(_amtCtrl.text) ?? 0;
+            final amt = double.parse((double.tryParse(_amtCtrl.text) ?? 0).toStringAsFixed(2));
             if (_forCtrl.text.isEmpty || amt <= 0) return;
             HapticFeedback.lightImpact();
             final src = _srcCtrl.text.trim();

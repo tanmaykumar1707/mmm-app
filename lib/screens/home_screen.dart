@@ -7,8 +7,10 @@ import '../utils/constants.dart';
 import 'month_tab.dart';
 import 'cards_tab.dart';
 import 'lb_tab.dart';
-import 'defaults_tab.dart';
+import 'defaults_tab.dart' show DefaultsScreen;
 import 'vault_tab.dart';
+import 'vault_expiry_dashboard.dart';
+import 'bills_tab.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -22,8 +24,8 @@ class _HomeScreenState extends State<HomeScreen> {
   static const _tabs = [
     {'icon': Icons.calendar_today_rounded,    'label': 'This Month'},
     {'icon': Icons.credit_card_rounded,       'label': 'Cards'},
+    {'icon': Icons.receipt_long_rounded,      'label': 'Bills'},
     {'icon': Icons.handshake_rounded,         'label': 'LB'},
-    {'icon': Icons.settings_rounded,          'label': 'Defaults'},
     {'icon': Icons.lock_rounded,              'label': 'Vault'},
   ];
 
@@ -90,7 +92,7 @@ class _HomeScreenState extends State<HomeScreen> {
           Expanded(
             child: IndexedStack(
               index: _tab,
-              children: const [MonthTab(), CardsTab(), LbTab(), DefaultsTab(), VaultTab()],
+              children: const [MonthTab(), CardsTab(), BillsTab(), LbTab(), VaultTab()],
             ),
           ),
           Container(
@@ -212,7 +214,14 @@ class _AppDrawer extends StatelessWidget {
             onTap: () { Navigator.pop(context); _showWorkspace(context); }),
           _DrawerItem(icon: Icons.people_outline_rounded, label: 'People & Access',
             onTap: () { Navigator.pop(context); Navigator.pushNamed(context, '/share-access'); }),
+          _DrawerItem(icon: Icons.settings_rounded, label: 'Settings',
+            onTap: () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (_) => const DefaultsScreen())); }),
           _DrawerItem(icon: Icons.notifications_none_rounded, label: 'Alerts'),
+          _DrawerItem(icon: Icons.calendar_month_rounded, label: 'Expiry / Renewal',
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const VaultExpiryDashboard()));
+            }),
           _DrawerItem(icon: Icons.info_outline_rounded, label: 'About',
             onTap: () { Navigator.pop(context); _showAbout(context); }),
         ])),

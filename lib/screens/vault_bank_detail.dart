@@ -26,7 +26,7 @@ class _VaultBankDetailScreenState extends State<VaultBankDetailScreen> {
   ];
   Color _bankColor(int idx) => _bankColors[idx % _bankColors.length];
 
-  void _enterBankSelect(String id) => setState(() { _bankSelectMode = true; _selectedBankIds.add(id); });
+  void _enterBankSelect(String id) => setState(() { _bankSelectMode = true; _expandedId = null; _selectedBankIds.add(id); });
   void _toggleBankSelect(String id) => setState(() {
     if (_selectedBankIds.contains(id)) { _selectedBankIds.remove(id); if (_selectedBankIds.isEmpty) _bankSelectMode = false; }
     else _selectedBankIds.add(id);
@@ -273,7 +273,7 @@ class _BankInstanceCardState extends State<_BankInstanceCard> {
     super.dispose();
   }
 
-  void _enterFieldSelect(String id) => setState(() { _fieldSelectMode = true; _selectedFields.add(id); });
+  void _enterFieldSelect(String id) => setState(() { _fieldSelectMode = true; _showNote = false; _selectedFields.add(id); });
   void _toggleField(String id) => setState(() {
     if (_selectedFields.contains(id)) { _selectedFields.remove(id); if (_selectedFields.isEmpty) _fieldSelectMode = false; }
     else _selectedFields.add(id);
@@ -830,11 +830,11 @@ class _BankFieldCardState extends State<_BankFieldCard> {
                     borderSide: const BorderSide(color: kPrimary, width: 1.5)),
                 filled: true, fillColor: Colors.white,
                 suffixIcon: GestureDetector(
-                  onTap: () { HapticFeedback.lightImpact(); widget.onSaveValue(_valCtrl.text); setState(() => _editingValue = false); },
+                  onTap: () { HapticFeedback.lightImpact(); widget.onSaveValue(_valCtrl.text); setState(() { _editingValue = false; _revealed = false; }); },
                   child: const Icon(Icons.done_rounded, color: kPrimary, size: 24),
                 ),
               ),
-              onSubmitted: (v) { widget.onSaveValue(v); setState(() => _editingValue = false); },
+              onSubmitted: (v) { widget.onSaveValue(v); setState(() { _editingValue = false; _revealed = false; }); },
             )
           else
             Row(children: [
@@ -1082,7 +1082,7 @@ class _CardFieldRowState extends State<_CardFieldRow> {
                   HapticFeedback.lightImpact();
                   widget.field.value = _ctrl.text;
                   widget.vp.saveBankCardField(widget.catId, widget.instanceId, widget.cardId, widget.field);
-                  setState(() => _editing = false);
+                  setState(() { _editing = false; _revealed = false; });
                 },
                 child: const Icon(Icons.done_rounded, color: kPrimary, size: 24),
               ),
@@ -1091,7 +1091,7 @@ class _CardFieldRowState extends State<_CardFieldRow> {
               widget.field.value = v;
               _ctrl.text = v;
               widget.vp.saveBankCardField(widget.catId, widget.instanceId, widget.cardId, widget.field);
-              setState(() => _editing = false);
+              setState(() { _editing = false; _revealed = false; });
             },
           )
         else

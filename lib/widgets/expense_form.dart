@@ -23,7 +23,7 @@ class _ExpenseFormState extends State<ExpenseForm> {
     super.initState();
     if (widget.expense != null) {
       _nameCtrl.text = widget.expense!.name;
-      _amtCtrl.text  = widget.expense!.amount.toStringAsFixed(0);
+      _amtCtrl.text  = formatAmountInput(widget.expense!.amount);
       _category      = widget.expense!.category;
       _dueDate       = widget.expense!.dueDate;
     }
@@ -42,7 +42,8 @@ class _ExpenseFormState extends State<ExpenseForm> {
           const SizedBox(height: 16),
           TextField(controller: _nameCtrl, decoration: const InputDecoration(labelText: 'Expense name')),
           const SizedBox(height: 12),
-          TextField(controller: _amtCtrl, keyboardType: TextInputType.number,
+          TextField(controller: _amtCtrl, keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            inputFormatters: [kAmountInputFormatter],
             decoration: const InputDecoration(labelText: 'Amount (₹)', prefixText: '₹')),
           const SizedBox(height: 12),
           DropdownButtonFormField<String>(
@@ -65,7 +66,7 @@ class _ExpenseFormState extends State<ExpenseForm> {
             Expanded(child: ElevatedButton(
               onPressed: () {
                 final name = _nameCtrl.text.trim();
-                final amount = double.tryParse(_amtCtrl.text) ?? 0;
+                final amount = double.parse((double.tryParse(_amtCtrl.text) ?? 0).toStringAsFixed(2));
                 if (name.isEmpty || amount <= 0) return;
                 if (widget.expense == null) {
                   sp.addExpense(widget.monthKey, Expense(

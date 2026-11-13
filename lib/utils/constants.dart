@@ -1,5 +1,6 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 const kPrimary      = Color(0xFF4F46E5);   // indigo
 const kPrimaryLight = Color(0xFF818CF8);   // soft indigo
@@ -35,23 +36,54 @@ const List<String> kMonths = [
   'July','August','September','October','November','December'
 ];
 
+// Returns "123" for 123.0, "123.5" for 123.5, "123.45" for 123.45 — for edit field population.
+String formatAmountInput(double n) {
+  if (n == n.truncateToDouble()) return n.toStringAsFixed(0);
+  return n.toStringAsFixed(2).replaceAll(RegExp(r'0+$'), '');
+}
+
+class _TwoDecimalInputFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(TextEditingValue old, TextEditingValue val) {
+    if (val.text.isEmpty) return val;
+    if (!RegExp(r'^\d*\.?\d*$').hasMatch(val.text)) return old;
+    final parts = val.text.split('.');
+    if (parts.length == 2 && parts[1].length > 2) return old;
+    return val;
+  }
+}
+final kAmountInputFormatter = _TwoDecimalInputFormatter();
+
 String formatINR(double n) {
   if (n >= 100000) return '₹${(n/100000).toStringAsFixed(1)}L';
   if (n >= 1000)   return '₹${(n/1000).toStringAsFixed(1)}K';
+  if (n != n.truncateToDouble()) {
+    final dec = n.toStringAsFixed(2).split('.')[1].replaceAll(RegExp(r'0+$'), '');
+    return '₹${n.truncate()}.$dec';
+  }
   return '₹${n.toStringAsFixed(0)}';
 }
 
 String formatINRFull(double n) {
-  final s = n.toStringAsFixed(0);
-  // Indian number format
-  if (s.length <= 3) return '₹$s';
-  final last3 = s.substring(s.length - 3);
-  final rest = s.substring(0, s.length - 3);
-  final parts = <String>[];
-  for (int i = rest.length; i > 0; i -= 2) {
-    parts.insert(0, rest.substring(i < 2 ? 0 : i - 2, i));
+  final intPart = n.truncate();
+  final s = intPart.toString();
+  String prefix;
+  if (s.length <= 3) {
+    prefix = '₹$s';
+  } else {
+    final last3 = s.substring(s.length - 3);
+    final rest = s.substring(0, s.length - 3);
+    final parts = <String>[];
+    for (int i = rest.length; i > 0; i -= 2) {
+      parts.insert(0, rest.substring(i < 2 ? 0 : i - 2, i));
+    }
+    prefix = '₹${parts.join(',')},${last3}';
   }
-  return '₹${parts.join(',')},${last3}';
+  if (n != n.truncateToDouble()) {
+    final dec = n.toStringAsFixed(2).split('.')[1].replaceAll(RegExp(r'0+$'), '');
+    return '$prefix.$dec';
+  }
+  return prefix;
 }
 
 String monthKey(int year, int month) =>

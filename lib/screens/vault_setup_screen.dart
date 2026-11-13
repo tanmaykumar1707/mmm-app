@@ -29,11 +29,11 @@ class _VaultSetupScreenState extends State<VaultSetupScreen> {
   }
 
   void _generateToken() {
-    setState(() => _generatedToken = VaultEncryptionService.generateToken());
+    setState(() { _generatedToken = VaultEncryptionService.generateToken(); _tokenCopied = false; _confirmed = false; });
   }
 
   Future<void> _proceed(VaultProvider vp) async {
-    if (!_confirmed) {
+    if (!_confirmed || _generatedToken == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please confirm you have saved the token')));
       return;

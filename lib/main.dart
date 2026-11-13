@@ -8,6 +8,8 @@ import 'services/state_provider.dart';
 import 'services/firebase_service.dart';
 import 'services/vault_provider.dart';
 import 'services/vault_notification_service.dart';
+import 'services/bill_provider.dart';
+import 'services/bill_notification_service.dart';
 import 'services/biometric_service.dart';
 import 'screens/login_screen.dart';
 import 'screens/home_screen.dart';
@@ -27,11 +29,13 @@ void main() async {
   }
   await VaultNotificationService.instance.init();
   await VaultNotificationService.instance.requestPermissions();
+  await BillNotificationService.instance.init();
   runApp(
     MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => StateProvider()),
         ChangeNotifierProvider(create: (_) => VaultProvider()),
+        ChangeNotifierProvider(create: (_) => BillProvider()),
       ],
       child: const MmmApp(),
     ),
@@ -97,8 +101,10 @@ class _AuthGateState extends State<_AuthGate> {
           await sp.loadSharedWorkspaces();
           if (mounted) sp.switchWorkspace(user.uid);
           if (mounted) context.read<VaultProvider>().init(user.uid);
+          if (mounted) context.read<BillProvider>().init(user.uid);
         } else {
           if (mounted) sp.clearWorkspace();
+          if (mounted) context.read<BillProvider>().clear();
         }
       } catch (e) {
         debugPrint('Auth/Firebase init error: $e');
@@ -106,7 +112,7 @@ class _AuthGateState extends State<_AuthGate> {
       }
       if (mounted) {
         bool locked = false;
-        if (!kIsWeb) locked = await BiometricService.instance.isEnabled();
+        if (!kIsWeb && user != null) locked = await BiometricService.instance.isEnabled();
         setState(() { _loading = false; _locked = locked; });
       }
     }, onError: (e) {

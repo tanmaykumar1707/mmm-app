@@ -39,6 +39,7 @@ class _VaultCategoryDetailScreenState extends State<VaultCategoryDetailScreen> {
   void _onLongPress(String fieldId) {
     setState(() {
       _selectMode = true;
+      _showNote = false;
       _selected.add(fieldId);
     });
   }
@@ -438,7 +439,10 @@ class _FieldCardState extends State<_FieldCard> {
     final cats = widget.vp.categoriesForPerson(widget.vp.activePersonId ?? '');
     final catId = cats.firstWhere((c) => c.fields.any((f) => f.id == widget.field.id)).id;
     await widget.vp.saveField(catId, widget.field);
-    if (mounted) setState(() => _editing = false);
+    if (mounted) {
+      if (widget.revealed) widget.onReveal(); // reset mask after save
+      setState(() => _editing = false);
+    }
   }
 
   static TextInputType _keyboardType(VaultFieldType t) => switch (t) {
