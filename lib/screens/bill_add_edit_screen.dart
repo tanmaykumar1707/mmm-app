@@ -25,6 +25,7 @@ class _BillAddEditScreenState extends State<BillAddEditScreen> {
   int  _dueDay   = 1;
   int? _dueMonth;      // for quarterly start-month
   DateTime? _dueDate;  // for yearly / irregular first due date
+  DateTime? _nextDuePick; // edit mode: direct next-due override
 
   List<BillAlert> _alerts = [
     const BillAlert(id: 'a1', daysBefore: 3, hour: 9, minute: 0),
@@ -47,7 +48,10 @@ class _BillAddEditScreenState extends State<BillAddEditScreen> {
       _dueDay       = b.dueDay;
       _dueMonth = b.dueMonth;
       if (b.nextDueDate.isNotEmpty) {
-        try { _dueDate = DateTime.parse(b.nextDueDate); } catch (_) {}
+        try {
+          _dueDate = DateTime.parse(b.nextDueDate);
+          _nextDuePick = _dueDate;
+        } catch (_) {}
       }
       _alerts = List.from(b.alerts);
     } else {
@@ -99,7 +103,9 @@ class _BillAddEditScreenState extends State<BillAddEditScreen> {
     final amount = double.tryParse(_amtCtrl.text.trim()) ?? 0;
     final typeInfo = _selType;
 
-    final nextDue = _computeNextDueDate();
+    final nextDue = (_isEdit && _nextDuePick != null)
+        ? Bill.fmtDate(_nextDuePick!)
+        : _computeNextDueDate();
 
     final bill = Bill(
       id:          _isEdit ? widget.bill!.id : genId(),
@@ -258,6 +264,51 @@ class _BillAddEditScreenState extends State<BillAddEditScreen> {
             ],
           ])),
           const SizedBox(height: 16),
+
+          // ── Next due date override (edit only) ──────────────────────────
+          if (_isEdit && _nextDuePick != null) ...[
+            _Section(title: 'Next Due Date', child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'When is this bill next due?',
+                  style: TextStyle(fontSize: 12, color: kTextLight),
+                ),
+                const SizedBox(height: 10),
+                GestureDetector(
+                  onTap: () async {
+                    HapticFeedback.selectionClick();
+                    final d = await showDatePicker(
+                      context: context,
+                      initialDate: _nextDuePick!,
+                      firstDate: DateTime(2020),
+                      lastDate: DateTime(2040),
+                    );
+                    if (d != null) setState(() => _nextDuePick = d);
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: kPrimary.withValues(alpha: 0.06),
+                      border: Border.all(color: kPrimary.withValues(alpha: 0.3)),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Row(children: [
+                      const Icon(Icons.event_rounded, size: 18, color: kPrimary),
+                      const SizedBox(width: 10),
+                      Text(
+                        '${_nextDuePick!.day} ${kMonths[_nextDuePick!.month - 1]} ${_nextDuePick!.year}',
+                        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700, color: kPrimary),
+                      ),
+                      const Spacer(),
+                      const Text('tap to change', style: TextStyle(fontSize: 11, color: kTextLight)),
+                    ]),
+                  ),
+                ),
+              ],
+            )),
+            const SizedBox(height: 16),
+          ],
 
           // ── Reminders ───────────────────────────────────────────────────
           _Section(title: 'Reminders', child: _AlertsEditor(
