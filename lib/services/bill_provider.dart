@@ -112,6 +112,19 @@ class BillProvider extends ChangeNotifier {
     });
   }
 
+  Future<void> deletePayment(String billId, String paymentId, {String? revertDueDate}) async {
+    if (_uid == null) return;
+    if (revertDueDate != null) {
+      // Atomic: delete payment + revert bill's nextDueDate in one write
+      await _db.update({
+        'userData/$_uid/bills/$billId/payments/$paymentId': null,
+        'userData/$_uid/bills/$billId/nextDueDate': revertDueDate,
+      });
+    } else {
+      await _db.child('userData/$_uid/bills/$billId/payments/$paymentId').remove();
+    }
+  }
+
   void _cancelSubs() {
     for (final s in _subs) { s.cancel(); }
     _subs.clear();

@@ -44,17 +44,19 @@ class _BillDetailScreenState extends State<BillDetailScreen> {
     return '${d.day} ${m[d.month - 1]} ${d.year}';
   }
 
-  void _showMarkPaid(BuildContext context) {
+  void _showMarkPaid(BuildContext context, Bill liveBill) {
     HapticFeedback.mediumImpact();
-    final bill = widget.bill;
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (_) => _MarkPaidSheet(
-        bill: bill,
-        onPaid: () async {
-          await _fetchPayments();
+        bill: liveBill,
+        onPaid: (BillPayment payment) {
+          if (mounted) setState(() {
+            _payments = [payment, ...(_payments ?? [])];
+            _loadingPayments = false;
+          });
         },
       ),
     );
@@ -172,7 +174,14 @@ class _BillDetailScreenState extends State<BillDetailScreen> {
               ),
             )
           else
-            ..._payments!.map((p) => _PaymentTile(payment: p)),
+            ..._payments!.asMap().entries.map((e) => _DismissiblePaymentTile(
+              payment: e.value,
+              billId: widget.bill.id,
+              isLatest: e.key == 0,
+              onDeleted: () {
+                if (mounted) setState(() => _payments!.remove(e.value));
+              },
+            )),
           const SizedBox(height: 80),
         ])),
       ]),
@@ -188,7 +197,7 @@ class _BillDetailScreenState extends State<BillDetailScreen> {
             ),
             icon: const Icon(Icons.check_circle_outline_rounded),
             label: Text('Mark as Paid for ${_fmtDate(bill.nextDueParsed)}'),
-            onPressed: () => _showMarkPaid(context),
+            onPressed: () => _showMarkPaid(context, bill),
           ),
         ),
       ),
@@ -215,6 +224,75 @@ class _InfoCard extends StatelessWidget {
         ..removeLast(),
     ),
   );
+}
+
+// ── Dismissible payment tile ──────────────────────────────────────────────────
+
+class _DismissiblePaymentTile extends StatelessWidget {
+  final BillPayment payment;
+  final String billId;
+  final bool isLatest;
+  final VoidCallback onDeleted;
+  const _DismissiblePaymentTile({
+    required this.payment,
+    required this.billId,
+    required this.isLatest,
+    required this.onDeleted,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Dismissible(
+      key: ValueKey(payment.id),
+      direction: DismissDirection.endToStart,
+      confirmDismiss: (_) async {
+        HapticFeedback.mediumImpact();
+        return await showDialog<bool>(
+          context: context,
+          builder: (_) => AlertDialog(
+            title: const Text('Delete Payment'),
+            content: const Text('Remove this payment record? This cannot be undone.'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Cancel'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('Delete', style: TextStyle(color: kDanger)),
+              ),
+            ],
+          ),
+        ) ?? false;
+      },
+      onDismissed: (_) async {
+        HapticFeedback.heavyImpact();
+        await context.read<BillProvider>().deletePayment(
+          billId, payment.id,
+          revertDueDate: isLatest ? payment.dueDate : null,
+        );
+        onDeleted();
+      },
+      background: Container(
+        margin: const EdgeInsets.only(bottom: 8),
+        decoration: BoxDecoration(
+          color: kDanger,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 20),
+        child: const Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.delete_outline_rounded, color: Colors.white, size: 24),
+            SizedBox(height: 4),
+            Text('Delete', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w700)),
+          ],
+        ),
+      ),
+      child: _PaymentTile(payment: payment),
+    );
+  }
 }
 
 // ── Payment tile ──────────────────────────────────────────────────────────────
@@ -270,7 +348,7 @@ class _PaymentTile extends StatelessWidget {
 
 class _MarkPaidSheet extends StatefulWidget {
   final Bill bill;
-  final VoidCallback onPaid;
+  final void Function(BillPayment) onPaid;
   const _MarkPaidSheet({required this.bill, required this.onPaid});
   @override
   State<_MarkPaidSheet> createState() => _MarkPaidSheetState();
@@ -316,6 +394,7 @@ class _MarkPaidSheetState extends State<_MarkPaidSheet> {
 
     setState(() => _saving = true);
     final bp = context.read<BillProvider>();
+    final paymentId = DateTime.now().millisecondsSinceEpoch.toString();
     await bp.markPaid(
       billId:      widget.bill.id,
       amount:      amount,
@@ -327,7 +406,15 @@ class _MarkPaidSheetState extends State<_MarkPaidSheet> {
     final updated = widget.bill.copyWith(nextDueDate: nextDue);
     await BillNotificationService.instance.scheduleBillAlerts(updated);
     HapticFeedback.heavyImpact();
-    widget.onPaid();
+    final payment = BillPayment(
+      id:        paymentId,
+      amount:    amount,
+      paidOn:    paidOnStr,
+      dueDate:   dueStr,
+      daysLate:  daysLate,
+      createdAt: int.parse(paymentId),
+    );
+    widget.onPaid(payment);
     if (mounted) Navigator.pop(context);
   }
 
