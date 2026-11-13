@@ -99,7 +99,7 @@ class _BillAddEditScreenState extends State<BillAddEditScreen> {
     final amount = double.tryParse(_amtCtrl.text.trim()) ?? 0;
     final typeInfo = _selType;
 
-    final nextDue = _isEdit ? widget.bill!.nextDueDate : _computeNextDueDate();
+    final nextDue = _computeNextDueDate();
 
     final bill = Bill(
       id:          _isEdit ? widget.bill!.id : genId(),
