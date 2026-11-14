@@ -43,7 +43,7 @@ class FirebaseService {
   static DatabaseReference userDataRef(String uid) => _db.ref('userData/$uid');
 
   static Future<void> saveState(String uid, AppState state) async {
-    await _db.ref('userData/$uid').set(state.toMap());
+    await _db.ref('userData/$uid').update(Map<String, Object?>.from(state.toMap()));
   }
 
   static Stream<AppState> watchState(String uid) {
