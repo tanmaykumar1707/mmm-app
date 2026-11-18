@@ -868,83 +868,193 @@ class _CashSection extends StatelessWidget {
   final StateProvider sp;
   const _CashSection({required this.monthKey, required this.cashTxns,
     required this.allCash, required this.sp});
+
+  void _openSheet(BuildContext context, {CashTxn? existing}) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _AddCashSheet(monthKey: monthKey, sp: sp, existing: existing),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final total = allCash.fold(0.0, (s, t) => s + t.amount);
-    return Card(margin: const EdgeInsets.only(bottom: 12), child: Column(children: [
-      ListTile(
-        leading: Container(width: 40, height: 40,
-          decoration: BoxDecoration(color: kAccent.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
-          child: const Icon(Icons.account_balance_wallet, color: kAccent, size: 20)),
-        title: const Text('Cash / Wallet', style: TextStyle(fontWeight: FontWeight.w600)),
-        subtitle: const Text('Pluxee, Slice, etc.', style: TextStyle(fontSize: 12, color: kTextLight)),
-        trailing: Text(formatINRFull(total), style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 8, offset: const Offset(0, 2))],
       ),
-      if (cashTxns.isNotEmpty) ...[
-        const Divider(height: 1),
-        ...cashTxns.map((t) => Opacity(
-          opacity: t.paid ? 0.5 : 1.0,
-          child: ListTile(dense: true,
-            title: Row(children: [
-              Expanded(child: Text(t.spentFor, style: TextStyle(
-                fontSize: 14,
-                decoration: t.paid ? TextDecoration.lineThrough : null))),
-              if (t.paid) Container(
-                margin: const EdgeInsets.only(left: 6),
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(color: kAccent.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(10)),
-                child: const Text('Paid', style: TextStyle(fontSize: 10, color: kAccent, fontWeight: FontWeight.w600)),
-              ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        // ── Header ──────────────────────────────────────────────────────
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
+          child: Row(children: [
+            Container(
+              width: 40, height: 40,
+              decoration: BoxDecoration(color: kAccent.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(10)),
+              child: const Icon(Icons.account_balance_wallet_rounded, color: kAccent, size: 20),
+            ),
+            const SizedBox(width: 12),
+            const Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text('Cash / Wallet', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15, color: kTextDark)),
+              Text('Pluxee, Slice & other sources', style: TextStyle(fontSize: 11, color: kTextLight)),
+            ])),
+            Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+              Text(formatINRFull(total),
+                style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: kTextDark)),
+              Text('${allCash.length} entry${allCash.length == 1 ? '' : 'ies'}',
+                style: const TextStyle(fontSize: 11, color: kTextLight)),
             ]),
-            subtitle: Text('${t.spentBy} · ${t.source} · ${t.date}', style: const TextStyle(fontSize: 11, color: kTextLight)),
-            trailing: Row(mainAxisSize: MainAxisSize.min, children: [
-              Text(formatINRFull(t.amount), style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-              if (!sp.isReadOnly) PopupMenuButton(itemBuilder: (_) => [
-                const PopupMenuItem(value: 'edit', child: Text('Edit')),
-                PopupMenuItem(value: 'paid', child: Text(t.paid ? 'Mark Unpaid' : 'Mark Paid',
-                  style: TextStyle(color: t.paid ? kTextMid : kAccent))),
-                const PopupMenuItem(value: 'delete', child: Text('Delete', style: TextStyle(color: kDanger))),
-              ], onSelected: (v) {
-                if (v == 'edit') {
-                  showModalBottomSheet(context: context, isScrollControlled: true,
-                    shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-                    builder: (_) => _AddCashSheet(monthKey: monthKey, sp: sp, existing: t));
-                } else if (v == 'paid') {
-                  HapticFeedback.lightImpact();
-                  sp.toggleCashTxnPaid(monthKey, t.id);
-                } else {
-                  HapticFeedback.mediumImpact();
-                  showDialog<bool>(
-                    context: context,
-                    builder: (ctx) => AlertDialog(
-                      title: const Text('Delete payment?'),
-                      content: Text('Remove "${t.spentFor}"?'),
-                      actions: [
-                        TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-                        TextButton(onPressed: () => Navigator.pop(ctx, true),
-                          child: const Text('Delete', style: TextStyle(color: kDanger))),
-                      ],
+          ]),
+        ),
+
+        // ── Transactions ─────────────────────────────────────────────────
+        if (cashTxns.isNotEmpty) ...[
+          const Divider(height: 1, indent: 16, endIndent: 16),
+          const SizedBox(height: 4),
+          ...cashTxns.map((t) {
+            final sourceColor = _sourceColor(t.source);
+            return Opacity(
+              opacity: t.paid ? 0.55 : 1.0,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: kBg,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFFE5E7EB)),
+                  ),
+                  child: Row(children: [
+                    // Source icon badge
+                    Container(
+                      width: 36, height: 36,
+                      decoration: BoxDecoration(
+                        color: sourceColor.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Center(child: Text(
+                        t.source.isNotEmpty ? t.source[0].toUpperCase() : '₹',
+                        style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: sourceColor),
+                      )),
                     ),
-                  ).then((ok) { if (ok == true) sp.deleteCashTxn(monthKey, t.id); });
-                }
-              }),
-            ]),
+                    const SizedBox(width: 10),
+                    Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Row(children: [
+                        Expanded(child: Text(t.spentFor,
+                          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: kTextDark,
+                            decoration: t.paid ? TextDecoration.lineThrough : null))),
+                        if (t.paid)
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(color: kAccent.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(8)),
+                            child: const Text('Paid', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: kAccent)),
+                          ),
+                      ]),
+                      const SizedBox(height: 4),
+                      Row(children: [
+                        // Source chip
+                        if (t.source.isNotEmpty)
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                            margin: const EdgeInsets.only(right: 6),
+                            decoration: BoxDecoration(
+                              color: sourceColor.withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Text(t.source, style: TextStyle(fontSize: 10, fontWeight: FontWeight.w700, color: sourceColor)),
+                          ),
+                        if (t.spentBy.isNotEmpty)
+                          Text('${t.spentBy} · ', style: const TextStyle(fontSize: 11, color: kTextLight)),
+                        Text(t.date, style: const TextStyle(fontSize: 11, color: kTextLight)),
+                      ]),
+                    ])),
+                    const SizedBox(width: 8),
+                    Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                      Text(formatINRFull(t.amount),
+                        style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14, color: kTextDark)),
+                      if (!sp.isReadOnly)
+                        PopupMenuButton<String>(
+                          padding: EdgeInsets.zero,
+                          iconSize: 18,
+                          icon: const Icon(Icons.more_vert_rounded, size: 18, color: kTextLight),
+                          itemBuilder: (_) => [
+                            const PopupMenuItem(value: 'edit', child: Text('Edit')),
+                            PopupMenuItem(value: 'paid', child: Text(t.paid ? 'Mark Unpaid' : 'Mark Paid',
+                              style: TextStyle(color: t.paid ? kTextMid : kAccent))),
+                            const PopupMenuItem(value: 'delete', child: Text('Delete',
+                              style: TextStyle(color: kDanger))),
+                          ],
+                          onSelected: (v) {
+                            if (v == 'edit') {
+                              _openSheet(context, existing: t);
+                            } else if (v == 'paid') {
+                              HapticFeedback.lightImpact();
+                              sp.toggleCashTxnPaid(monthKey, t.id);
+                            } else {
+                              HapticFeedback.mediumImpact();
+                              showDialog<bool>(
+                                context: context,
+                                builder: (ctx) => AlertDialog(
+                                  title: const Text('Delete payment?'),
+                                  content: Text('Remove "${t.spentFor}"?'),
+                                  actions: [
+                                    TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+                                    TextButton(onPressed: () => Navigator.pop(ctx, true),
+                                      child: const Text('Delete', style: TextStyle(color: kDanger))),
+                                  ],
+                                ),
+                              ).then((ok) { if (ok == true) sp.deleteCashTxn(monthKey, t.id); });
+                            }
+                          },
+                        ),
+                    ]),
+                  ]),
+                ),
+              ),
+            );
+          }),
+          const SizedBox(height: 4),
+        ],
+
+        // ── Add button ───────────────────────────────────────────────────
+        if (!sp.isReadOnly)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+            child: SizedBox(width: double.infinity,
+              child: OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: kAccent,
+                  side: const BorderSide(color: kAccent),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                ),
+                icon: const Icon(Icons.add_rounded, size: 18),
+                label: const Text('Add Cash Payment', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                onPressed: () => _openSheet(context),
+              ),
+            ),
           ),
-        )),
-      ],
-      if (!sp.isReadOnly) TextButton.icon(
-        icon: const Icon(Icons.add, size: 16),
-        label: const Text('Add Cash Payment'),
-        onPressed: () => showModalBottomSheet(context: context, isScrollControlled: true,
-          shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-          builder: (_) => _AddCashSheet(monthKey: monthKey, sp: sp)),
-      ),
-    ]));
+        if (sp.isReadOnly) const SizedBox(height: 8),
+      ]),
+    );
+  }
+
+  Color _sourceColor(String src) {
+    final colors = [kPrimary, kAccent, const Color(0xFF059669), const Color(0xFFD97706),
+      const Color(0xFF7C3AED), const Color(0xFFDB2777)];
+    if (src.isEmpty) return kAccent;
+    return colors[src.codeUnitAt(0) % colors.length];
   }
 }
 
 class _AddCashSheet extends StatefulWidget {
-  final String monthKey; final StateProvider sp;
+  final String monthKey;
+  final StateProvider sp;
   final CashTxn? existing;
   const _AddCashSheet({required this.monthKey, required this.sp, this.existing});
   @override
@@ -952,12 +1062,24 @@ class _AddCashSheet extends StatefulWidget {
 }
 
 class _AddCashSheetState extends State<_AddCashSheet> {
-  final _forCtrl = TextEditingController();
-  final _amtCtrl = TextEditingController();
-  final _srcCtrl = TextEditingController();
+  final _forCtrl    = TextEditingController();
+  final _amtCtrl    = TextEditingController();
+  final _newSrcCtrl = TextEditingController();
+  String? _selectedSource;
   String? _spentBy;
+  bool _addingSource = false;
 
   bool get _isEdit => widget.existing != null;
+
+  List<String> get _sources {
+    final list = List<String>.from(widget.sp.state.cashSources);
+    // If existing transaction has a source not in the master list, include it
+    final e = widget.existing;
+    if (e != null && e.source.isNotEmpty && !list.contains(e.source)) {
+      list.insert(0, e.source);
+    }
+    return list;
+  }
 
   @override
   void initState() {
@@ -966,67 +1088,245 @@ class _AddCashSheetState extends State<_AddCashSheet> {
     if (e != null) {
       _forCtrl.text = e.spentFor;
       _amtCtrl.text = formatAmountInput(e.amount);
-      _srcCtrl.text = e.source;
+      _selectedSource = e.source.isNotEmpty ? e.source : null;
       _spentBy = e.spentBy.isNotEmpty ? e.spentBy : null;
     } else {
       _spentBy = widget.sp.state.people.isNotEmpty ? widget.sp.state.people.first : null;
+      if (widget.sp.state.cashSources.isNotEmpty) {
+        _selectedSource = widget.sp.state.cashSources.first;
+      }
     }
   }
 
   @override
-  Widget build(BuildContext context) => Padding(
-    padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
-    child: Padding(padding: const EdgeInsets.all(20), child: Column(mainAxisSize: MainAxisSize.min, children: [
-      Text(_isEdit ? 'Edit Cash Payment' : 'Add Cash Payment',
-        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
-      const SizedBox(height: 16),
-      TextField(controller: _forCtrl, decoration: const InputDecoration(labelText: 'Spent for')),
-      const SizedBox(height: 12),
-      TextField(controller: _amtCtrl, keyboardType: const TextInputType.numberWithOptions(decimal: true),
-        inputFormatters: [kAmountInputFormatter],
-        decoration: const InputDecoration(labelText: 'Amount', prefixText: '₹')),
-      const SizedBox(height: 12),
-      TextField(controller: _srcCtrl, decoration: const InputDecoration(labelText: 'Source (Pluxee, Slice, etc.)')),
-      const SizedBox(height: 12),
-      if (widget.sp.state.people.isNotEmpty)
-        DropdownButtonFormField<String>(
-          value: _spentBy,
-          decoration: const InputDecoration(labelText: 'Spent by'),
-          items: widget.sp.state.people.map((p) => DropdownMenuItem(value: p, child: Text(p))).toList(),
-          onChanged: (v) => setState(() => _spentBy = v),
-        ),
-      const SizedBox(height: 16),
-      Row(children: [
-        Expanded(child: OutlinedButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel'))),
-        const SizedBox(width: 12),
-        Expanded(child: ElevatedButton(
-          onPressed: () {
-            final amt = double.parse((double.tryParse(_amtCtrl.text) ?? 0).toStringAsFixed(2));
-            if (_forCtrl.text.isEmpty || amt <= 0) return;
-            HapticFeedback.lightImpact();
-            final src = _srcCtrl.text.trim();
-            if (src.isNotEmpty) widget.sp.addCashSource(src);
-            if (_isEdit) {
-              widget.sp.updateCashTxn(widget.monthKey, CashTxn(
-                id: widget.existing!.id, spentFor: _forCtrl.text.trim(),
-                spentBy: _spentBy ?? '', source: src,
-                date: widget.existing!.date, amount: amt,
-                paid: widget.existing!.paid,
-              ));
-            } else {
-              widget.sp.addCashTxn(widget.monthKey, CashTxn(
-                id: genId(), spentFor: _forCtrl.text.trim(),
-                spentBy: _spentBy ?? '', source: src,
-                date: DateTime.now().toIso8601String().split('T')[0], amount: amt,
-              ));
-            }
-            Navigator.pop(context);
-          },
-          child: Text(_isEdit ? 'Save' : 'Add'),
-        )),
+  void dispose() {
+    _forCtrl.dispose(); _amtCtrl.dispose(); _newSrcCtrl.dispose();
+    super.dispose();
+  }
+
+  void _confirmAddSource() {
+    final src = _newSrcCtrl.text.trim();
+    if (src.isEmpty) { setState(() => _addingSource = false); return; }
+    widget.sp.addCashSource(src);
+    setState(() { _selectedSource = src; _addingSource = false; _newSrcCtrl.clear(); });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final sources = _sources;
+    return Container(
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      padding: EdgeInsets.fromLTRB(20, 20, 20, MediaQuery.of(context).viewInsets.bottom + 24),
+      child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Center(child: Container(width: 36, height: 4,
+          decoration: BoxDecoration(color: const Color(0xFFE5E7EB), borderRadius: BorderRadius.circular(2)))),
+        const SizedBox(height: 16),
+        Text(_isEdit ? 'Edit Cash Payment' : 'Add Cash Payment',
+          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: kTextDark)),
+        const SizedBox(height: 20),
+
+        // Spent for
+        TextField(controller: _forCtrl,
+          decoration: InputDecoration(
+            labelText: 'Spent for',
+            isDense: true,
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(color: Color(0xFFE5E7EB))),
+            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(color: kPrimary, width: 1.5)),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          )),
+        const SizedBox(height: 12),
+
+        // Amount
+        TextField(controller: _amtCtrl,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          inputFormatters: [kAmountInputFormatter],
+          decoration: InputDecoration(
+            labelText: 'Amount', prefixText: '₹ ',
+            isDense: true,
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(color: Color(0xFFE5E7EB))),
+            focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(color: kPrimary, width: 1.5)),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          )),
+        const SizedBox(height: 16),
+
+        // Source picker
+        const Text('Source', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: kTextMid)),
+        const SizedBox(height: 8),
+        if (sources.isEmpty && !_addingSource)
+          GestureDetector(
+            onTap: () => setState(() => _addingSource = true),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              decoration: BoxDecoration(
+                border: Border.all(color: const Color(0xFFE5E7EB)),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Row(children: [
+                Icon(Icons.add_rounded, size: 18, color: kAccent),
+                SizedBox(width: 8),
+                Text('Add a source (Pluxee, Slice…)',
+                  style: TextStyle(fontSize: 13, color: kTextLight)),
+              ]),
+            ),
+          )
+        else
+          Wrap(spacing: 8, runSpacing: 8, children: [
+            ...sources.map((src) {
+              final sel = _selectedSource == src;
+              return GestureDetector(
+                onTap: () { HapticFeedback.selectionClick(); setState(() => _selectedSource = src); },
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 150),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: sel ? kAccent : const Color(0xFFF3F4F6),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: sel ? kAccent : const Color(0xFFE5E7EB)),
+                  ),
+                  child: Text(src, style: TextStyle(
+                    fontSize: 13, fontWeight: FontWeight.w700,
+                    color: sel ? Colors.white : kTextDark)),
+                ),
+              );
+            }),
+            // "+" chip to add new
+            if (!_addingSource)
+              GestureDetector(
+                onTap: () { HapticFeedback.selectionClick(); setState(() => _addingSource = true); },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF3F4F6),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: const Color(0xFFE5E7EB)),
+                  ),
+                  child: const Row(mainAxisSize: MainAxisSize.min, children: [
+                    Icon(Icons.add_rounded, size: 15, color: kTextMid),
+                    SizedBox(width: 4),
+                    Text('Add', style: TextStyle(fontSize: 12, color: kTextMid, fontWeight: FontWeight.w600)),
+                  ]),
+                ),
+              ),
+          ]),
+
+        // Inline new-source input
+        if (_addingSource) ...[
+          const SizedBox(height: 10),
+          Row(children: [
+            Expanded(child: TextField(
+              controller: _newSrcCtrl,
+              autofocus: true,
+              textCapitalization: TextCapitalization.words,
+              decoration: InputDecoration(
+                hintText: 'e.g. Pluxee, Slice, UPI',
+                isDense: true,
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10),
+                  borderSide: const BorderSide(color: Color(0xFFE5E7EB))),
+                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10),
+                  borderSide: const BorderSide(color: kAccent, width: 1.5)),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              ),
+              onSubmitted: (_) => _confirmAddSource(),
+            )),
+            const SizedBox(width: 8),
+            GestureDetector(
+              onTap: _confirmAddSource,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                decoration: BoxDecoration(color: kAccent, borderRadius: BorderRadius.circular(10)),
+                child: const Text('Add', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 13)),
+              ),
+            ),
+            const SizedBox(width: 6),
+            GestureDetector(
+              onTap: () => setState(() { _addingSource = false; _newSrcCtrl.clear(); }),
+              child: const Icon(Icons.close_rounded, size: 20, color: kTextLight),
+            ),
+          ]),
+        ],
+        const SizedBox(height: 16),
+
+        // Spent by
+        if (widget.sp.state.people.isNotEmpty)
+          DropdownButtonFormField<String>(
+            value: _spentBy,
+            isDense: true,
+            decoration: InputDecoration(
+              labelText: 'Spent by',
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10),
+                borderSide: const BorderSide(color: Color(0xFFE5E7EB))),
+              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10),
+                borderSide: const BorderSide(color: kPrimary, width: 1.5)),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            ),
+            items: widget.sp.state.people.map((p) =>
+              DropdownMenuItem(value: p, child: Text(p))).toList(),
+            onChanged: (v) => setState(() => _spentBy = v),
+          ),
+        const SizedBox(height: 20),
+
+        // Action buttons
+        Row(children: [
+          Expanded(child: OutlinedButton(
+            style: OutlinedButton.styleFrom(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              minimumSize: const Size.fromHeight(48),
+            ),
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          )),
+          const SizedBox(width: 12),
+          Expanded(child: ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: kPrimary, foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              minimumSize: const Size.fromHeight(48),
+            ),
+            onPressed: () {
+              final amt = double.parse((double.tryParse(_amtCtrl.text) ?? 0).toStringAsFixed(2));
+              if (_forCtrl.text.trim().isEmpty || amt <= 0) return;
+              HapticFeedback.mediumImpact();
+              final src = _selectedSource ?? '';
+              if (_isEdit) {
+                widget.sp.updateCashTxn(widget.monthKey, CashTxn(
+                  id: widget.existing!.id,
+                  spentFor: _forCtrl.text.trim(),
+                  spentBy: _spentBy ?? '',
+                  source: src,
+                  date: widget.existing!.date,
+                  amount: amt,
+                  paid: widget.existing!.paid,
+                ));
+              } else {
+                widget.sp.addCashTxn(widget.monthKey, CashTxn(
+                  id: genId(),
+                  spentFor: _forCtrl.text.trim(),
+                  spentBy: _spentBy ?? '',
+                  source: src,
+                  date: DateTime.now().toIso8601String().split('T')[0],
+                  amount: amt,
+                ));
+              }
+              Navigator.pop(context);
+            },
+            child: Text(_isEdit ? 'Save' : 'Add',
+              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+          )),
+        ]),
       ]),
-    ])),
-  );
+    );
+  }
 }
 
 class _ManageCardsSheet extends StatefulWidget {

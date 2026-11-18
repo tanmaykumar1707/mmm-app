@@ -583,6 +583,11 @@ class _AlertsEditor extends StatelessWidget {
           upd[i] = BillAlert(id: a.id, daysBefore: d, hour: a.hour, minute: a.minute);
           onChange(upd);
         },
+        onTimeChanged: (t) {
+          final upd = List<BillAlert>.from(alerts);
+          upd[i] = BillAlert(id: a.id, daysBefore: a.daysBefore, hour: t.hour, minute: t.minute);
+          onChange(upd);
+        },
       );
     }),
     const SizedBox(height: 10),
@@ -605,7 +610,19 @@ class _AlertRow extends StatelessWidget {
   final BillAlert alert;
   final VoidCallback? onRemove;
   final ValueChanged<int> onDaysChanged;
-  const _AlertRow({required this.alert, this.onRemove, required this.onDaysChanged});
+  final ValueChanged<TimeOfDay> onTimeChanged;
+  const _AlertRow({
+    required this.alert,
+    this.onRemove,
+    required this.onDaysChanged,
+    required this.onTimeChanged,
+  });
+
+  String get _timeLabel {
+    final h = alert.hour.toString().padLeft(2, '0');
+    final m = alert.minute.toString().padLeft(2, '0');
+    return '$h:$m';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -632,6 +649,32 @@ class _AlertRow extends StatelessWidget {
               style: const TextStyle(fontSize: 13)))).toList(),
           onChanged: (v) { if (v != null) onDaysChanged(v); },
         )),
+        const SizedBox(width: 8),
+        // Time picker button
+        GestureDetector(
+          onTap: () async {
+            HapticFeedback.selectionClick();
+            final picked = await showTimePicker(
+              context: context,
+              initialTime: TimeOfDay(hour: alert.hour, minute: alert.minute),
+            );
+            if (picked != null) onTimeChanged(picked);
+          },
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            decoration: BoxDecoration(
+              color: kPrimary.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: kPrimary.withValues(alpha: 0.25)),
+            ),
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              const Icon(Icons.access_time_rounded, size: 14, color: kPrimary),
+              const SizedBox(width: 4),
+              Text(_timeLabel, style: const TextStyle(
+                fontSize: 13, fontWeight: FontWeight.w700, color: kPrimary)),
+            ]),
+          ),
+        ),
         if (onRemove != null) ...[
           const SizedBox(width: 8),
           GestureDetector(

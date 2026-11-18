@@ -240,6 +240,11 @@ class StateProvider extends ChangeNotifier {
     }
   }
 
+  void deleteCashSource(String src) {
+    _state.cashSources.remove(src);
+    save(); notifyListeners();
+  }
+
   // ── LB entries ──
   void addLbEntry(LbEntry e) { _state.lbEntries.add(e); save(); notifyListeners(); }
   void updateLbEntry(LbEntry e) {

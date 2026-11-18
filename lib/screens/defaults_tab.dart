@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show HapticFeedback;
 import 'package:provider/provider.dart';
 import '../services/state_provider.dart';
 import '../services/biometric_service.dart';
@@ -27,6 +28,8 @@ class DefaultsScreen extends StatelessWidget {
         const _AppLockSection(),
         const SizedBox(height: 16),
         _PeopleSection(sp: sp),
+        const SizedBox(height: 16),
+        _CashSourcesSection(sp: sp),
         const SizedBox(height: 16),
         // Default expenses header
         Row(children: [
@@ -258,6 +261,106 @@ class _DefaultFormState extends State<_DefaultForm> {
           )),
         ]),
       ])),
+    );
+  }
+}
+
+// ── Cash Sources section (Settings) ──────────────────────────────────────────
+
+class _CashSourcesSection extends StatefulWidget {
+  final StateProvider sp;
+  const _CashSourcesSection({required this.sp});
+  @override
+  State<_CashSourcesSection> createState() => _CashSourcesSectionState();
+}
+
+class _CashSourcesSectionState extends State<_CashSourcesSection> {
+  final _ctrl = TextEditingController();
+  bool _adding = false;
+
+  @override
+  void dispose() { _ctrl.dispose(); super.dispose(); }
+
+  void _add() {
+    final src = _ctrl.text.trim();
+    if (src.isEmpty) { setState(() => _adding = false); return; }
+    widget.sp.addCashSource(src);
+    _ctrl.clear();
+    setState(() => _adding = false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final sources = widget.sp.state.cashSources;
+    return Card(
+      child: Padding(padding: const EdgeInsets.all(14), child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(children: [
+            const Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text('Cash Sources', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
+              Text('Pluxee, Slice, UPI, etc.', style: TextStyle(fontSize: 12, color: kTextLight)),
+            ])),
+            if (!widget.sp.isReadOnly)
+              TextButton.icon(
+                icon: const Icon(Icons.add_rounded, size: 16),
+                label: const Text('Add'),
+                onPressed: () => setState(() => _adding = true),
+              ),
+          ]),
+          if (sources.isEmpty && !_adding)
+            const Padding(
+              padding: EdgeInsets.only(top: 8),
+              child: Text('No sources yet. Add Pluxee, Slice, etc.',
+                style: TextStyle(fontSize: 13, color: kTextLight)),
+            ),
+          if (sources.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Wrap(spacing: 8, runSpacing: 8, children: sources.map((src) => Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: kBg,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: const Color(0xFFE5E7EB)),
+              ),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                Text(src, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: kTextDark)),
+                if (!widget.sp.isReadOnly) ...[
+                  const SizedBox(width: 6),
+                  GestureDetector(
+                    onTap: () {
+                      HapticFeedback.mediumImpact();
+                      widget.sp.deleteCashSource(src);
+                    },
+                    child: const Icon(Icons.close_rounded, size: 14, color: kTextLight),
+                  ),
+                ],
+              ]),
+            )).toList()),
+          ],
+          if (_adding) ...[
+            const SizedBox(height: 10),
+            Row(children: [
+              Expanded(child: TextField(
+                controller: _ctrl,
+                autofocus: true,
+                textCapitalization: TextCapitalization.words,
+                decoration: const InputDecoration(
+                  hintText: 'e.g. Pluxee, Slice, UPI',
+                  isDense: true,
+                  contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                ),
+                onSubmitted: (_) => _add(),
+              )),
+              IconButton(icon: const Icon(Icons.check_circle_rounded, color: kPrimary), onPressed: _add),
+              IconButton(
+                icon: const Icon(Icons.close_rounded, color: kTextLight),
+                onPressed: () => setState(() { _adding = false; _ctrl.clear(); }),
+              ),
+            ]),
+          ],
+        ],
+      )),
     );
   }
 }
